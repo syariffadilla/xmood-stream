@@ -24,8 +24,8 @@ export default function Footer() {
               Network Specs
             </h4>
             <ul className="space-y-1">
-              <li>Chain: <span className="text-[#ECEDEF]">Base Sepolia (84532)</span></li>
-              <li>Currency: <span className="text-[#ECEDEF]">ETH (Testnet)</span></li>
+              <li>Chain: <span className="text-[#ECEDEF]">{CONTRACT_ADDRESSES.chainName} ({CONTRACT_ADDRESSES.chainId})</span></li>
+              <li>Currency: <span className="text-[#ECEDEF]">BOT / ETH</span></li>
               <li>Tip Token: <span className="text-[#E8A33D]">mUSDT (6 Decimals)</span></li>
               <li>Reward: <span className="text-[#3FA796]">$XMS (18 Decimals)</span></li>
             </ul>
@@ -38,7 +38,7 @@ export default function Footer() {
             <ul className="space-y-1">
               <li>
                 <a
-                  href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.XMoodStreamCore}`}
+                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.XMoodStreamCore}`}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#3ED6C4] flex items-center space-x-1"
@@ -49,7 +49,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.TipVault}`}
+                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.TipVault}`}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#3ED6C4] flex items-center space-x-1"
@@ -60,7 +60,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.RewardDistributor}`}
+                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.RewardDistributor}`}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#3ED6C4] flex items-center space-x-1"
@@ -84,7 +84,7 @@ export default function Footer() {
         </div>
 
         <div className="pt-4 border-t border-[#282D3B] flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#656C7D]">
-          <div>© 2026 X-Mood Stream. Built for Base Sepolia.</div>
+          <div>© 2026 X-Mood Stream. EVM Compatible (BOT Chain & Base).</div>
           <div className="flex items-center space-x-4 mt-2 sm:mt-0">
             <span>Status: <strong className="text-[#3ED6C4]">Live on Testnet</strong></span>
           </div>

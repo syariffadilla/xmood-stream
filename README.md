@@ -36,8 +36,23 @@ X-Mood Stream introduces a **non-custodial, dual-token SocialFi mechanism**:
 
 ---
 
-## 🌐 3. Live Smart Contracts (Base Sepolia)
+## 🌐 3. Live Smart Contracts (Multi-Chain Deployments)
 
+### A. BOT Chain Testnet (Chain ID: 968)
+* **Network**: BOT Chain Testnet
+* **Chain ID**: `968`
+* **RPC URL**: `https://rpc.bohr.life`
+* **Block Explorer**: [https://scan.botchain.ai](https://scan.botchain.ai)
+
+| Contract Name | Address (BOT Chain Testnet) | Explorer Link |
+|---|---|---|
+| **MockUSDT (`mUSDT`)** | `0xBe73e5e6dda3FcA356D2bB9228C33258c526147E` | [View on BotScan](https://scan.botchain.ai/address/0xBe73e5e6dda3FcA356D2bB9228C33258c526147E) |
+| **RewardToken (`$XMS`)** | `0x6cCd0e61710044c3060Fd51F572bF2f677275a87` | [View on BotScan](https://scan.botchain.ai/address/0x6cCd0e61710044c3060Fd51F572bF2f677275a87) |
+| **XMoodStreamCore** | `0x16C5cb15a0CeB9f5dc83b9FE58aa475B0363DdaC` | [View on BotScan](https://scan.botchain.ai/address/0x16C5cb15a0CeB9f5dc83b9FE58aa475B0363DdaC) |
+| **TipVault (95/5 Split)** | `0x00299f76c116d2F03E342E6911e16a892b02C4E3` | [View on BotScan](https://scan.botchain.ai/address/0x00299f76c116d2F03E342E6911e16a892b02C4E3) |
+| **RewardDistributor** | `0xF49ddF41b02a714c38347Cc724f094706fDBd86c` | [View on BotScan](https://scan.botchain.ai/address/0xF49ddF41b02a714c38347Cc724f094706fDBd86c) |
+
+### B. Base Sepolia (Chain ID: 84532)
 * **Network**: Base Sepolia
 * **Chain ID**: `84532`
 * **RPC URL**: `https://sepolia.base.org`

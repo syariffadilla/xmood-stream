@@ -28,7 +28,7 @@ coverage/
 typechain/
 typechain-types/
 
-# AI perancangan, mockups, screenshots, and AI prompts
+# Design mockups & local specs
 perancangan/
 .agents/
 .gemini/
@@ -38,6 +38,18 @@ DEPLOYMENT.md
 # Keep only the public project README on GitHub
 *.md
 !README.md
+!docs/README.md
+
+# Temporary scripts & documents
+*.ps1
+X-Mood-Stream-*.doc
+X-Mood-Stream-*.docx
+X-Mood-Stream-*.rtf
+check_*.js
+test_*.js
+extracted_guide.txt
+read_guide.ps1
+*Integration Guide*
 
 # Logs & OS metadata
 *.log

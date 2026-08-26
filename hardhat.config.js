@@ -30,6 +30,18 @@ module.exports = {
       accounts: getAccounts(),
       chainId: 84532,
     },
+    botchainTestnet: {
+      url: process.env.BOTCHAIN_TESTNET_RPC_URL || "https://rpc.bohr.life",
+      accounts: getAccounts(),
+      chainId: 968,
+      gasPrice: 25000000000,
+    },
+    botchain: {
+      url: process.env.BOTCHAIN_RPC_URL || "https://rpc.botchain.ai",
+      accounts: getAccounts(),
+      chainId: 677,
+      gasPrice: 25000000000,
+    },
   },
   etherscan: {
     apiKey: {
