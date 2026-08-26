@@ -22,17 +22,34 @@ import {
   Coins, 
   ShieldCheck, 
   ExternalLink,
-  Loader2
+  Loader2,
+  Image as ImageIcon,
+  MessageSquarePlus,
+  Share2,
+  Zap,
+  TrendingUp,
+  Tag
 } from 'lucide-react';
 
+const CATEGORY_TABS = [
+  { id: 'all', label: '⚡ All Streams' },
+  { id: '#Alpha', label: '🚀 Alpha' },
+  { id: '#DePIN', label: '🤖 DePIN & AI' },
+  { id: '#DeFi', label: '📈 DeFi' },
+  { id: '#NFT', label: '🎨 NFT & Art' },
+  { id: '#Meme', label: '🔥 Memes' },
+];
+
 export default function FeedPage() {
-  const [filter, setFilter] = useState('latest');
+  const [activeCategory, setActiveCategory] = useState('all');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedPostForTip, setSelectedPostForTip] = useState(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isFaucetOpen, setIsFaucetOpen] = useState(false);
   const [quickContent, setQuickContent] = useState('');
+  const [quickMedia, setQuickMedia] = useState('');
+  const [showQuickMedia, setShowQuickMedia] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   const publicClient = usePublicClient();
@@ -46,7 +63,22 @@ export default function FeedPage() {
     functionName: 'getTotalPosts',
   });
 
-  // High-performance parallel data fetcher
+  // Helper to parse content, tags, and media
+  const parsePostData = (rawText) => {
+    let cleanText = rawText || '';
+    let mediaUrl = null;
+
+    // Check for [media:url] pattern
+    const mediaMatch = cleanText.match(/\[media:(.*?)\]/);
+    if (mediaMatch) {
+      mediaUrl = mediaMatch[1];
+      cleanText = cleanText.replace(/\[media:.*?\]/, '').trim();
+    }
+
+    return { text: cleanText, mediaUrl };
+  };
+
+  // Parallel fetcher
   const fetchPostsFromChain = useCallback(async () => {
     if (!publicClient) return;
     setLoading(true);
@@ -63,7 +95,6 @@ export default function FeedPage() {
         postIndices.push(i);
       }
 
-      // Fetch all posts in parallel via Promise.all (1 single batch round-trip)
       const fetchedResults = await Promise.all(
         postIndices.map(async (i) => {
           try {
@@ -82,10 +113,14 @@ export default function FeedPage() {
               }),
             ]);
 
+            const parsed = parsePostData(post.contentHash);
+
             return {
               id: Number(post.id),
               author: post.author,
-              content: post.contentHash,
+              rawContent: post.contentHash,
+              content: parsed.text,
+              mediaUrl: parsed.mediaUrl,
               timestamp: Number(post.timestamp),
               tipsUsdt: parseFloat(formatUnits(postTipAmount, 6)),
               isGenesis: false,
@@ -98,22 +133,36 @@ export default function FeedPage() {
 
       const validPosts = fetchedResults.filter(Boolean);
 
-      // Add verified genesis stream examples if chain has fewer than 3 posts
+      // Add rich creator demo posts if fewer than 3 posts exist
       if (validPosts.length < 3) {
         validPosts.push({
-          id: 901,
+          id: 902,
           author: '0x3ED6C4092bF52B289659f81643c1626788B2A109',
-          content: 'Just deployed and optimized the X-Mood Stream SocialFi smart contracts on BOT Chain. 95% creator split is now active! ⚡🚀 #BOTChain #SocialFi',
-          timestamp: Math.floor(Date.now() / 1000) - 3600,
-          tipsUsdt: 25.0,
+          rawContent: '#Alpha 🚀 Launching our DePIN AI compute node on BOT Chain! Instant transactions and sub-cent gas fees make creator micro-streaming seamless.',
+          content: '#Alpha 🚀 Launching our DePIN AI compute node on BOT Chain! Instant transactions and sub-cent gas fees make creator micro-streaming seamless.',
+          mediaUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80',
+          timestamp: Math.floor(Date.now() / 1000) - 1800,
+          tipsUsdt: 45.0,
+          isGenesis: true,
+        });
+        validPosts.push({
+          id: 901,
+          author: '0x7F4b119A29cbB42F64a781C2605E82dB49103C8e',
+          rawContent: '#DeFi 📊 SocialFi analytics update: 95% direct tipping vault split is officially outperforming traditional web2 creator models.',
+          content: '#DeFi 📊 SocialFi analytics update: 95% direct tipping vault split is officially outperforming traditional web2 creator models.',
+          mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+          timestamp: Math.floor(Date.now() / 1000) - 5400,
+          tipsUsdt: 20.0,
           isGenesis: true,
         });
         validPosts.push({
           id: 900,
-          author: '0x7F4b119A29cbB42F64a781C2605E82dB49103C8e',
-          content: 'The dual-token model ($XMS for internal gas & rewards + USDT for direct creator tips) is remarkably smooth. What content are you broadcasting today? 📊',
-          timestamp: Math.floor(Date.now() / 1000) - 7200,
-          tipsUsdt: 12.5,
+          author: '0x99248271A9283746192837461928374619283741',
+          rawContent: '#NFT 🎨 Generative mood art minted and tied to my on-chain stream. Tip in USDT to unlock the high-res NFT badge!',
+          content: '#NFT 🎨 Generative mood art minted and tied to my on-chain stream. Tip in USDT to unlock the high-res NFT badge!',
+          mediaUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=800&q=80',
+          timestamp: Math.floor(Date.now() / 1000) - 10800,
+          tipsUsdt: 15.0,
           isGenesis: true,
         });
       }
@@ -141,22 +190,29 @@ export default function FeedPage() {
       return;
     }
 
+    let finalPayload = quickContent.trim();
+    if (quickMedia.trim()) {
+      finalPayload = `${finalPayload} [media:${quickMedia.trim()}]`;
+    }
+
     setIsBroadcasting(true);
     try {
-      toast.loading('Broadcasting on-chain...', { id: 'quick-broadcast' });
+      toast.loading('Broadcasting to BOT Chain...', { id: 'quick-broadcast' });
 
       await writeContractAsync({
         address: CONTRACT_ADDRESSES.XMoodStreamCore,
         abi: CORE_ABI,
         functionName: 'createPost',
-        args: [quickContent.trim()],
+        args: [finalPayload],
       });
 
-      toast.loading('Confirming transaction...', { id: 'quick-broadcast' });
-      await new Promise((r) => setTimeout(r, 3000));
+      toast.loading('Mining transaction on-chain...', { id: 'quick-broadcast' });
+      await new Promise((r) => setTimeout(r, 3500));
 
       toast.success('🎉 Update broadcasted to ledger successfully! (+10 $XMS)', { id: 'quick-broadcast' });
       setQuickContent('');
+      setQuickMedia('');
+      setShowQuickMedia(false);
       fetchPostsFromChain();
     } catch (err) {
       console.error(err);
@@ -166,285 +222,221 @@ export default function FeedPage() {
     }
   };
 
-  const sortedPosts = [...posts].sort((a, b) => {
-    if (filter === 'trending') {
-      return b.tipsUsdt - a.tipsUsdt;
-    }
-    return b.id - a.id;
+  // Filter posts by category tag
+  const filteredPosts = posts.filter((post) => {
+    if (activeCategory === 'all') return true;
+    return post.rawContent?.includes(activeCategory);
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#12151C] text-[#ECEDEF]">
+    <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6]">
       <Navbar
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenFaucet={() => setIsFaucetOpen(true)}
       />
 
-      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-8">
+      <main className="flex-grow max-w-4xl mx-auto px-4 sm:px-6 w-full py-6 sm:py-8 space-y-6">
         
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* MAIN FEED COLUMN (8 Cols) */}
-          <div className="lg:col-span-8 space-y-6">
-            
-            {/* In-Place Quick Broadcast Box */}
-            <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 shadow-lg">
-              <form onSubmit={handleQuickBroadcast}>
-                <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3ED6C4] to-[#1E56E0] p-0.5 shrink-0">
-                    <div className="w-full h-full bg-[#1B1F29] rounded-[10px] flex items-center justify-center font-mono text-xs font-bold text-[#3ED6C4]">
-                      {address ? address.slice(2, 4).toUpperCase() : 'YOU'}
-                    </div>
-                  </div>
+        {/* Quick Creator Studio Card */}
+        <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl p-5 shadow-xl">
+          <div className="flex items-start space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center font-mono font-bold text-sm text-[#090C15] shrink-0 shadow-lg shadow-[#00F5A0]/20">
+              {address ? address.slice(2, 4).toUpperCase() : 'X'}
+            </div>
 
-                  <div className="flex-grow space-y-3">
-                    <textarea
-                      rows={2}
-                      value={quickContent}
-                      onChange={(e) => setQuickContent(e.target.value)}
-                      placeholder={isConnected ? "Broadcast thoughts, signals, or alpha to the on-chain ledger..." : "Connect wallet to broadcast on Base Sepolia..."}
-                      disabled={!isConnected || isBroadcasting}
-                      className="w-full bg-[#12151C] border border-[#282D3B] focus:border-[#3ED6C4] rounded-lg p-3 text-sm text-[#ECEDEF] placeholder-[#656C7D] outline-none transition-colors resize-none disabled:opacity-60 font-sans"
-                      maxLength={280}
+            <form onSubmit={handleQuickBroadcast} className="flex-grow space-y-3">
+              <textarea
+                rows={2}
+                value={quickContent}
+                onChange={(e) => setQuickContent(e.target.value)}
+                placeholder="What's your mood or alpha? Broadcast directly to the BOT Chain ledger..."
+                className="w-full bg-[#090C15] border border-[#1E293B] focus:border-[#00F5A0] rounded-xl p-3 text-sm text-[#F3F4F6] placeholder-[#64748B] outline-none transition-colors resize-none font-sans"
+                maxLength={280}
+              />
+
+              {showQuickMedia && (
+                <div className="p-3 bg-[#090C15] border border-[#1E293B] rounded-xl space-y-2">
+                  <input
+                    type="url"
+                    value={quickMedia}
+                    onChange={(e) => setQuickMedia(e.target.value)}
+                    placeholder="Enter Image URL (e.g. Unsplash, IPFS, Imgur, GIF)..."
+                    className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-1.5 text-xs font-mono text-[#F3F4F6] outline-none"
+                  />
+                  {quickMedia && (
+                    <img
+                      src={quickMedia}
+                      alt="Preview"
+                      className="w-full h-32 object-cover rounded-lg border border-[#1E293B]"
+                      onError={(e) => { e.target.style.display = 'none'; }}
                     />
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 text-xs font-mono text-[#3FA796]">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Earn 10 $XMS per post</span>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={!isConnected || !quickContent.trim() || isBroadcasting}
-                        className="flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-[#3ED6C4] to-[#1E56E0] text-[#12151C] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-[#3ED6C4]/20 transition-all"
-                      >
-                        {isBroadcasting ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#12151C]" />
-                            <span>Broadcasting...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3.5 h-3.5" />
-                            <span>Broadcast</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </form>
-            </div>
+              )}
 
-            {/* Filter Bar */}
-            <div className="flex items-center justify-between bg-[#1B1F29] border border-[#282D3B] px-4 py-3 rounded-xl">
-              <div className="flex items-center space-x-2 font-mono text-xs">
-                <button
-                  onClick={() => setFilter('latest')}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md transition-colors ${
-                    filter === 'latest'
-                      ? 'bg-[#12151C] text-[#3ED6C4] font-bold border border-[#282D3B]'
-                      : 'text-[#8B92A3] hover:text-[#ECEDEF]'
-                  }`}
-                >
-                  <Radio className="w-3.5 h-3.5" />
-                  <span>Latest Streams</span>
-                </button>
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickMedia(!showQuickMedia)}
+                    className="flex items-center space-x-1 text-xs font-mono text-[#94A3B8] hover:text-[#00F5A0] transition-colors p-1.5 rounded-lg hover:bg-[#182032]"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5 text-[#00F5A0]" />
+                    <span>{showQuickMedia ? 'Close Media' : 'Attach Image'}</span>
+                  </button>
+                  <span className="text-[11px] font-mono text-[#00F5A0] hidden sm:inline">
+                    • Earns 10 $XMS
+                  </span>
+                </div>
 
                 <button
-                  onClick={() => setFilter('trending')}
-                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md transition-colors ${
-                    filter === 'trending'
-                      ? 'bg-[#12151C] text-[#E8A33D] font-bold border border-[#282D3B]'
-                      : 'text-[#8B92A3] hover:text-[#ECEDEF]'
-                  }`}
+                  type="submit"
+                  disabled={isBroadcasting || !quickContent.trim() || !isConnected}
+                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-[#00F5A0]/20 transition-all hover:scale-[1.02]"
                 >
-                  <Flame className="w-3.5 h-3.5" />
-                  <span>Trending Tips</span>
-                </button>
-              </div>
-
-              <div className="flex items-center space-x-3 text-xs font-mono text-[#8B92A3]">
-                <span>{posts.length} Broadcasts</span>
-                <button
-                  onClick={fetchPostsFromChain}
-                  className="p-1.5 rounded-lg hover:bg-[#12151C] hover:text-[#3ED6C4] transition-colors"
-                  title="Refresh feed"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  {isBroadcasting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#090C15]" />
+                      <span>Broadcasting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5 text-[#090C15]" />
+                      <span>Broadcast</span>
+                    </>
+                  )}
                 </button>
               </div>
-            </div>
-
-            {/* Posts List */}
-            {loading && posts.length === 0 ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 animate-pulse space-y-3">
-                    <div className="flex justify-between items-center">
-                      <div className="w-32 h-4 bg-[#272A31] rounded"></div>
-                      <div className="w-20 h-4 bg-[#272A31] rounded"></div>
-                    </div>
-                    <div className="w-full h-12 bg-[#272A31] rounded"></div>
-                  </div>
-                ))}
-              </div>
-            ) : sortedPosts.length === 0 ? (
-              <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-12 text-center">
-                <Layers className="w-10 h-10 text-[#8B92A3] mx-auto mb-3" />
-                <h3 className="font-grotesk font-bold text-lg text-[#ECEDEF]">No posts found</h3>
-                <p className="text-xs font-mono text-[#8B92A3] mt-1">Be the first to broadcast on Base Sepolia!</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {sortedPosts.map((post) => {
-                  const isOwnPost = address && post.author.toLowerCase() === address.toLowerCase();
-                  const dateFormatted = post.timestamp > 0 
-                    ? new Date(post.timestamp * 1000).toLocaleString() 
-                    : 'Just now';
-
-                  return (
-                    <article
-                      key={post.id}
-                      className="bg-[#1B1F29] border border-[#282D3B] hover:border-[#3ED6C4]/30 rounded-xl p-5 transition-all shadow-md group"
-                    >
-                      {/* Author Header */}
-                      <div className="flex justify-between items-start mb-3 pb-3 ledger-border-b">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-xl bg-[#12151C] border border-[#282D3B] flex items-center justify-center font-mono text-xs font-bold text-[#3ED6C4] group-hover:border-[#3ED6C4]/50 transition-colors">
-                            {post.author.slice(2, 4).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <span className="font-mono text-xs font-semibold text-[#ECEDEF]">
-                                {post.author.slice(0, 6)}...{post.author.slice(-4)}
-                              </span>
-                              {post.isGenesis ? (
-                                <span className="px-1.5 py-0.2 rounded bg-[#3FA796]/20 text-[#3FA796] text-[10px] font-mono font-medium">
-                                  GENESIS
-                                </span>
-                              ) : isOwnPost ? (
-                                <span className="px-1.5 py-0.2 rounded bg-[#3ED6C4]/20 text-[#3ED6C4] text-[10px] font-mono font-medium">
-                                  YOU
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="font-mono text-[11px] text-[#8B92A3]">
-                              TX #{post.id} • {dateFormatted}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Tips Received Badge */}
-                        <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-[#12151C] border border-[#E8A33D]/30 font-mono text-xs text-[#E8A33D]">
-                          <Heart className="w-3.5 h-3.5 fill-current" />
-                          <span className="font-bold">{post.tipsUsdt.toFixed(2)}</span>
-                          <span className="text-[10px] text-[#8B92A3]">USDT</span>
-                        </div>
-                      </div>
-
-                      {/* Content */}
-                      <p className="font-sans text-sm text-[#ECEDEF] leading-relaxed my-3 whitespace-pre-wrap">
-                        {post.content}
-                      </p>
-
-                      {/* Footer Actions */}
-                      <div className="pt-3 ledger-border-t flex items-center justify-between text-xs font-mono">
-                        <div className="text-[#8B92A3] flex items-center space-x-2 text-[11px]">
-                          <span>Ledger Verified</span>
-                          <span>•</span>
-                          <span className="text-[#3FA796]">+10 $XMS Minted</span>
-                        </div>
-
-                        {/* Tip Button */}
-                        <button
-                          onClick={() => setSelectedPostForTip(post)}
-                          disabled={isOwnPost}
-                          className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-grotesk font-semibold transition-all ${
-                            isOwnPost
-                              ? 'bg-[#12151C] text-[#656C7D] cursor-not-allowed border border-[#282D3B]'
-                              : 'bg-[#E8A33D]/10 hover:bg-[#E8A33D] text-[#E8A33D] hover:text-[#12151C] border border-[#E8A33D]/40 shadow-sm'
-                          }`}
-                        >
-                          <Heart className="w-3.5 h-3.5" />
-                          <span>{isOwnPost ? 'Your Broadcast' : 'Send Tip'}</span>
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-
+            </form>
           </div>
-
-          {/* SIDEBAR COLUMN (4 Cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            
-            {/* Protocol Telemetry Card */}
-            <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 shadow-lg space-y-4">
-              <div className="flex items-center space-x-2 text-sm font-grotesk font-bold text-[#ECEDEF] ledger-border-b pb-3">
-                <ShieldCheck className="w-4 h-4 text-[#3ED6C4]" />
-                <span>{CONTRACT_ADDRESSES.chainName} Protocol</span>
-              </div>
-
-              <div className="space-y-2.5 text-xs font-mono">
-                <div className="flex justify-between text-[#8B92A3]">
-                  <span>Network:</span>
-                  <span className="text-[#ECEDEF] font-semibold">{CONTRACT_ADDRESSES.chainName} ({CONTRACT_ADDRESSES.chainId})</span>
-                </div>
-                <div className="flex justify-between text-[#8B92A3]">
-                  <span>Creator Royalty:</span>
-                  <span className="text-[#3ED6C4] font-semibold">95% Direct</span>
-                </div>
-                <div className="flex justify-between text-[#8B92A3]">
-                  <span>Protocol Treasury:</span>
-                  <span className="text-[#8B92A3]">5%</span>
-                </div>
-                <div className="flex justify-between text-[#8B92A3]">
-                  <span>Posting Reward:</span>
-                  <span className="text-[#3FA796] font-semibold">+10.0 $XMS</span>
-                </div>
-                <div className="flex justify-between text-[#8B92A3]">
-                  <span>Daily Check-in:</span>
-                  <span className="text-[#3FA796] font-semibold">+5.0 $XMS</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-[#282D3B]">
-                <a
-                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.XMoodStreamCore}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center justify-center space-x-1.5 py-2 rounded-lg bg-[#12151C] hover:bg-[#12151C]/80 border border-[#282D3B] text-xs font-mono text-[#8B92A3] hover:text-[#ECEDEF] transition-colors"
-                >
-                  <span>View Core Contract on Explorer</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
-
-            {/* Testnet Faucet Quick Widget */}
-            <div className="bg-gradient-to-br from-[#1B1F29] to-[#12151C] border border-[#E8A33D]/30 rounded-xl p-5 shadow-lg space-y-3">
-              <div className="flex items-center space-x-2 text-xs font-mono text-[#E8A33D]">
-                <Coins className="w-4 h-4" />
-                <span className="font-bold">Testnet mUSDT Faucet</span>
-              </div>
-              <p className="text-xs text-[#8B92A3] font-sans leading-relaxed">
-                Need mock USDT to test sending tips to creators? Claim 100 free testnet tokens once every 24h.
-              </p>
-              <button
-                onClick={() => setIsFaucetOpen(true)}
-                className="w-full py-2.5 rounded-lg bg-[#E8A33D] hover:bg-[#ffb44a] text-[#12151C] font-grotesk font-bold text-xs uppercase tracking-wider transition-all shadow-md shadow-[#E8A33D]/20"
-              >
-                Open Faucet Modal
-              </button>
-            </div>
-
-          </div>
-
         </div>
+
+        {/* Category Filter Tabs & Refresh */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0E131F] border border-[#1E293B] p-2 rounded-2xl">
+          <div className="flex flex-wrap gap-1">
+            {CATEGORY_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveCategory(tab.id)}
+                className={`px-3 py-1.5 rounded-xl font-mono text-xs transition-all ${
+                  activeCategory === tab.id
+                    ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-md shadow-[#00F5A0]/20'
+                    : 'text-[#94A3B8] hover:text-[#F3F4F6] hover:bg-[#182032]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={fetchPostsFromChain}
+            className="p-2 rounded-xl bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/50 text-[#94A3B8] hover:text-[#00F5A0] transition-colors"
+            title="Refresh feed"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {/* Feed List */}
+        {loading && posts.length === 0 ? (
+          <div className="py-16 text-center space-y-3">
+            <div className="w-8 h-8 border-2 border-[#00F5A0] border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-xs font-mono text-[#94A3B8]">
+              Loading verified streams from BOT Chain Testnet...
+            </p>
+          </div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl p-12 text-center space-y-3">
+            <Layers className="w-10 h-10 text-[#64748B] mx-auto opacity-50" />
+            <h3 className="font-grotesk font-bold text-base text-[#F3F4F6]">
+              No streams in this category yet
+            </h3>
+            <p className="text-xs text-[#94A3B8] max-w-sm mx-auto">
+              Be the first creator to broadcast in this category and earn $XMS rewards!
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredPosts.map((post) => (
+              <article
+                key={post.id}
+                className="bg-[#0E131F] border border-[#1E293B] hover:border-[#00F5A0]/40 rounded-2xl p-5 shadow-xl transition-all space-y-3.5 group"
+              >
+                {/* Creator Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#00F5A0] to-[#6366F1] flex items-center justify-center font-mono font-bold text-xs text-[#090C15] shadow-sm">
+                      {post.author.slice(2, 4).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-xs sm:text-sm font-bold text-[#F3F4F6]">
+                          {post.author.slice(0, 6)}...{post.author.slice(-4)}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#00F5A0]/10 text-[#00F5A0] text-[10px] font-mono font-semibold border border-[#00F5A0]/20">
+                          Creator
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-[#64748B]">
+                        TX #{post.id} • {post.timestamp > 0 ? new Date(post.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Tipped Pill */}
+                  <div className="px-2.5 py-1 rounded-xl bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30 font-mono text-xs font-bold flex items-center space-x-1">
+                    <Heart className="w-3.5 h-3.5 fill-current text-[#F59E0B]" />
+                    <span>+{post.tipsUsdt.toFixed(1)} USDT</span>
+                  </div>
+                </div>
+
+                {/* Content Message */}
+                <p className="text-sm font-sans text-[#F3F4F6] leading-relaxed whitespace-pre-wrap">
+                  {post.content}
+                </p>
+
+                {/* Attached Image / Media Banner (if present) */}
+                {post.mediaUrl && (
+                  <div className="rounded-xl overflow-hidden border border-[#1E293B] max-h-80 bg-[#090C15]">
+                    <img
+                      src={post.mediaUrl}
+                      alt="Stream media"
+                      className="w-full h-auto max-h-80 object-cover group-hover:scale-[1.01] transition-transform duration-300"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  </div>
+                )}
+
+                {/* Action Bar: Tip Creator Button & Details */}
+                <div className="flex items-center justify-between pt-3 border-t border-[#1E293B] text-xs font-mono">
+                  <div className="flex items-center space-x-3 text-[#64748B]">
+                    <span>95% Creator Split</span>
+                    <span>•</span>
+                    <a
+                      href={`${CONTRACT_ADDRESSES.explorer}/address/${post.author}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#94A3B8] hover:text-[#00F5A0] flex items-center space-x-1 transition-colors"
+                    >
+                      <span>BotScan</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedPostForTip(post)}
+                    className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-[#F59E0B]/10 hover:bg-[#F59E0B] text-[#F59E0B] hover:text-[#090C15] border border-[#F59E0B]/40 font-grotesk font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
+                  >
+                    <Zap className="w-3.5 h-3.5 fill-current" />
+                    <span>Tip USDT</span>
+                  </button>
+                </div>
+
+              </article>
+            ))}
+          </div>
+        )}
 
       </main>
 
@@ -456,12 +448,14 @@ export default function FeedPage() {
         onClose={() => setIsCreateOpen(false)}
         onPostCreated={fetchPostsFromChain}
       />
+
       <TipModal
         isOpen={!!selectedPostForTip}
-        post={selectedPostForTip}
         onClose={() => setSelectedPostForTip(null)}
+        post={selectedPostForTip || {}}
         onTipSuccess={fetchPostsFromChain}
       />
+
       <FaucetModal
         isOpen={isFaucetOpen}
         onClose={() => setIsFaucetOpen(false)}

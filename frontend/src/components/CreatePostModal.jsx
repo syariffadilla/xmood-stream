@@ -6,30 +6,41 @@ import { CONTRACT_ADDRESSES } from '../contracts/addresses';
 import { CORE_ABI, REWARD_TOKEN_ABI } from '../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { X, Send, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { 
+  X, 
+  Send, 
+  Sparkles, 
+  AlertCircle, 
+  Loader2, 
+  Image as ImageIcon, 
+  Tag, 
+  Smile, 
+  Check, 
+  Zap,
+  Globe
+} from 'lucide-react';
+
+const MOOD_CATEGORIES = [
+  { id: 'alpha', label: '🚀 Alpha', tag: '#Alpha' },
+  { id: 'depin', label: '🤖 AI & DePIN', tag: '#DePIN' },
+  { id: 'defi', label: '📈 DeFi & Yield', tag: '#DeFi' },
+  { id: 'nft', label: '🎨 NFT & Art', tag: '#NFT' },
+  { id: 'meme', label: '🔥 Meme', tag: '#Meme' },
+  { id: 'general', label: '💬 General', tag: '#SocialFi' },
+];
 
 export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
   const [content, setContent] = useState('');
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [showMediaInput, setShowMediaInput] = useState(false);
+  const [selectedTag, setSelectedTag] = useState('alpha');
   const { address, isConnected } = useAccount();
-
-  // Read XMS balance
-  const { data: xmsBalance } = useReadContract({
-    address: CONTRACT_ADDRESSES.RewardToken,
-    abi: REWARD_TOKEN_ABI,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
-  });
 
   const {
     data: hash,
     isPending: isSubmitting,
     writeContractAsync,
   } = useWriteContract();
-
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash,
-  });
 
   if (!isOpen) return null;
 
@@ -40,23 +51,33 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
       return;
     }
 
+    // Pack tag + text + mediaUrl into structured post payload
+    let finalPayload = content.trim();
+    const tagObj = MOOD_CATEGORIES.find((m) => m.id === selectedTag);
+    if (tagObj && !finalPayload.includes(tagObj.tag)) {
+      finalPayload = `${tagObj.tag} ${finalPayload}`;
+    }
+    if (mediaUrl.trim()) {
+      finalPayload = `${finalPayload} [media:${mediaUrl.trim()}]`;
+    }
+
     try {
       toast.loading('Confirming transaction in wallet...', { id: 'create-post' });
 
-      // Call createPost with content string / hash
-      const tx = await writeContractAsync({
+      await writeContractAsync({
         address: CONTRACT_ADDRESSES.XMoodStreamCore,
         abi: CORE_ABI,
         functionName: 'createPost',
-        args: [content.trim()],
+        args: [finalPayload],
       });
 
-      toast.loading('Mining transaction on-chain...', { id: 'create-post' });
+      toast.loading('Mining broadcast on BOT Chain...', { id: 'create-post' });
 
-      // After dispatch, wait for receipt or notify
       setTimeout(() => {
-        toast.success('Post broadcasted successfully!', { id: 'create-post' });
+        toast.success('🎉 Content published successfully! (+10 $XMS)', { id: 'create-post' });
         setContent('');
+        setMediaUrl('');
+        setShowMediaInput(false);
         if (onPostCreated) onPostCreated();
         onClose();
       }, 3500);
@@ -68,20 +89,20 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-      <div className="relative w-full max-w-lg bg-[#1B1F29] border border-[#282D3B] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="relative w-full max-w-lg bg-[#0E131F] border border-[#1E293B] rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#282D3B] bg-[#10131A]/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1E293B] bg-[#090C15]/80">
           <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#3ED6C4] animate-pulse"></span>
-            <h3 className="font-grotesk font-bold text-base text-[#ECEDEF]">
-              Broadcast On-Chain Post
+            <span className="w-2.5 h-2.5 rounded-full bg-[#00F5A0] animate-pulse"></span>
+            <h3 className="font-grotesk font-bold text-base text-[#F3F4F6]">
+              Creator Studio — Broadcast Stream
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="text-[#8B92A3] hover:text-[#ECEDEF] p-1 rounded-md hover:bg-[#272A31] transition-colors"
+            className="text-[#94A3B8] hover:text-[#F3F4F6] p-1 rounded-lg hover:bg-[#182032] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -89,33 +110,91 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          
+          {/* Category / Mood Selector */}
           <div>
-            <label className="block text-xs font-mono text-[#8B92A3] uppercase tracking-wider mb-2">
-              Content / Mood Update (IPFS or Raw Text)
+            <label className="block text-xs font-mono text-[#94A3B8] uppercase tracking-wider mb-2">
+              Select Stream Category
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {MOOD_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setSelectedTag(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl font-mono text-xs transition-all ${
+                    selectedTag === cat.id
+                      ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-md shadow-[#00F5A0]/20'
+                      : 'bg-[#090C15] border border-[#1E293B] text-[#94A3B8] hover:text-[#F3F4F6] hover:border-[#00F5A0]/40'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Text Content */}
+          <div>
+            <label className="block text-xs font-mono text-[#94A3B8] uppercase tracking-wider mb-2">
+              Broadcast Message & Insights
             </label>
             <textarea
               rows={4}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="What's happening? Share thoughts, signals, or alpha to the ledger..."
-              className="w-full bg-[#12151C] border border-[#282D3B] focus:border-[#3ED6C4] rounded-lg p-3 text-sm text-[#ECEDEF] placeholder-[#656C7D] outline-none transition-colors resize-none font-sans"
+              placeholder="Share alpha, research, analysis, or creative insights to your subscribers..."
+              className="w-full bg-[#090C15] border border-[#1E293B] focus:border-[#00F5A0] rounded-xl p-3.5 text-sm text-[#F3F4F6] placeholder-[#64748B] outline-none transition-colors resize-none font-sans"
               maxLength={280}
             />
-            <div className="flex justify-between items-center mt-1 text-[11px] font-mono text-[#656C7D]">
-              <span>On-Chain Storage (Permanent)</span>
+            <div className="flex justify-between items-center mt-1 text-[11px] font-mono text-[#64748B]">
+              <button
+                type="button"
+                onClick={() => setShowMediaInput(!showMediaInput)}
+                className="text-[#00F5A0] hover:underline flex items-center space-x-1"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>{showMediaInput ? 'Hide Media URL' : '+ Attach Image / Media Link'}</span>
+              </button>
               <span>{content.length}/280</span>
             </div>
           </div>
 
-          {/* Reward info box */}
-          <div className="bg-[#12151C] border border-[#282D3B] rounded-lg p-3 flex items-start space-x-3 text-xs">
-            <Sparkles className="w-4 h-4 text-[#3FA796] shrink-0 mt-0.5" />
+          {/* Media / Image URL attachment */}
+          {showMediaInput && (
+            <div className="space-y-2 p-3 bg-[#090C15] border border-[#1E293B] rounded-xl animate-in fade-in duration-150">
+              <label className="block text-xs font-mono text-[#94A3B8]">
+                Image or GIF URL (e.g. IPFS, Unsplash, Imgur, or direct link)
+              </label>
+              <input
+                type="url"
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+                placeholder="https://images.unsplash.com/... or https://ipfs.io/..."
+                className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-2 text-xs font-mono text-[#F3F4F6] outline-none"
+              />
+              {mediaUrl && (
+                <div className="relative rounded-lg overflow-hidden border border-[#1E293B] max-h-40">
+                  <img
+                    src={mediaUrl}
+                    alt="Media preview"
+                    className="w-full h-40 object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Creator Reward Benefit */}
+          <div className="bg-[#090C15] border border-[#00F5A0]/20 rounded-xl p-3.5 flex items-start space-x-3 text-xs">
+            <Sparkles className="w-4 h-4 text-[#00F5A0] shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <span className="font-grotesk font-semibold text-[#3FA796]">
-                Earn $XMS on every broadcast
+              <span className="font-grotesk font-semibold text-[#00F5A0]">
+                Creator Monetization Active
               </span>
-              <p className="text-[#8B92A3] text-[11px]">
-                Each verified post earns you 10 $XMS reward tokens claimable in the Rewards Hub.
+              <p className="text-[#94A3B8] text-[11px]">
+                Earns +10 $XMS reward tokens immediately + enables direct 95% mUSDT tips from readers.
               </p>
             </div>
           </div>
@@ -125,28 +204,29 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-[#272A31] hover:bg-[#32353C] text-[#ECEDEF] text-xs font-mono font-medium transition-colors"
+              className="px-4 py-2 rounded-xl bg-[#090C15] border border-[#1E293B] hover:bg-[#182032] text-[#94A3B8] hover:text-[#F3F4F6] text-xs font-mono transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isConfirming || !content.trim()}
-              className="flex items-center space-x-2 px-5 py-2 rounded-lg bg-gradient-to-r from-[#3ED6C4] to-[#1E56E0] text-[#12151C] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#3ED6C4]/20"
+              disabled={isSubmitting || !content.trim()}
+              className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-[#00F5A0]/20"
             >
-              {isSubmitting || isConfirming ? (
+              {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-[#12151C]" />
-                  <span>Processing...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#090C15]" />
+                  <span>Broadcasting...</span>
                 </>
               ) : (
                 <>
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="w-3.5 h-3.5 text-[#090C15]" />
                   <span>Broadcast Now</span>
                 </>
               )}
             </button>
           </div>
+
         </form>
 
       </div>
