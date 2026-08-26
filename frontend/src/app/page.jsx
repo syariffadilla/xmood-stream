@@ -36,7 +36,7 @@ export default function LandingPage() {
         <section className="w-full flex flex-col items-center text-center gap-4 pt-6">
           <div className="inline-flex items-center space-x-2 bg-[#1B1F29] border border-[#282D3B] px-3 py-1 rounded-full text-xs font-mono text-[#8B92A3]">
             <span className="w-2 h-2 rounded-full bg-[#3ED6C4] animate-ping"></span>
-            <span className="text-[#3ED6C4] font-medium">NETWORK: BASE SEPOLIA (84532)</span>
+            <span className="text-[#3ED6C4] font-medium">NETWORK: {CONTRACT_ADDRESSES.chainName.toUpperCase()} ({CONTRACT_ADDRESSES.chainId})</span>
             <span>•</span>
             <span>SYSTEM: ONLINE</span>
           </div>
@@ -222,7 +222,7 @@ export default function LandingPage() {
             </div>
 
             <div className="p-3 rounded-lg bg-[#10131A]/80 border border-[#282D3B] text-[11px] font-mono text-[#8B92A3]">
-              <strong className="text-[#ECEDEF]">Base Sepolia Chain ID:</strong> 84532 | Nonce-enforced
+              <strong className="text-[#ECEDEF]">{CONTRACT_ADDRESSES.chainName} Chain ID:</strong> {CONTRACT_ADDRESSES.chainId} | Nonce-enforced
             </div>
 
           </div>

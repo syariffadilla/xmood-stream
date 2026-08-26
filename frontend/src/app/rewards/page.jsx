@@ -197,8 +197,8 @@ export default function RewardsPage() {
             {/* Left Col - Balance & Token Info */}
             <div className="lg:col-span-7 space-y-3">
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#3FA796]/10 border border-[#3FA796]/30 text-xs font-mono text-[#3FA796]">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Base Sepolia Reward Pool</span>
+                <ShieldCheck className="w-4 h-4 text-[#3ED6C4]" />
+                <span>{CONTRACT_ADDRESSES.chainName} Reward Pool</span>
               </div>
 
               <div>

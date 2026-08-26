@@ -122,7 +122,7 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
               Get Free Testnet USDT
             </h4>
             <p className="text-xs text-[#8B92A3] font-sans mt-1">
-              Mint 100 Mock USDT instantly to test tipping creators on Base Sepolia.
+              Mint 100 Mock USDT instantly to test tipping creators on {CONTRACT_ADDRESSES.chainName}.
             </p>
           </div>
 

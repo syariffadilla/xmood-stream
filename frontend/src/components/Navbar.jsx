@@ -59,7 +59,7 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
 
             <div className="hidden sm:flex items-center space-x-1.5 bg-[#1B1F29] border border-[#282D3B] px-2 py-0.5 rounded text-[11px] font-mono text-[#3ED6C4]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#3ED6C4] animate-pulse"></span>
-              <span className="font-medium">Base Sepolia</span>
+              <span className="font-medium">{chain?.name || 'BOT Chain'}</span>
             </div>
           </div>
 

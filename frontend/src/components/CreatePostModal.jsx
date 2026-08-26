@@ -51,7 +51,7 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
         args: [content.trim()],
       });
 
-      toast.loading('Mining transaction on Base Sepolia...', { id: 'create-post' });
+      toast.loading('Mining transaction on-chain...', { id: 'create-post' });
 
       // After dispatch, wait for receipt or notify
       setTimeout(() => {

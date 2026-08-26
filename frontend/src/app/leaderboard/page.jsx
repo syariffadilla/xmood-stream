@@ -190,7 +190,7 @@ export default function LeaderboardPage() {
               </h1>
             </div>
             <p className="text-xs font-mono text-[#8B92A3] mt-1">
-              Top Creators by USDT earned & Top Patrons by USDT tipped on Base Sepolia
+              Top Creators by USDT earned & Top Patrons by USDT tipped on {CONTRACT_ADDRESSES.chainName}
             </p>
           </div>
 

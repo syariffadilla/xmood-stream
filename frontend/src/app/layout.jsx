@@ -3,7 +3,7 @@ import { Providers } from './providers';
 
 export const metadata = {
   title: 'X-Mood Stream — SocialFi Tipping & Rewards',
-  description: 'Decentralized SocialFi micro-blogging on Base Sepolia. Post updates, tip in USDT, and earn $XMS rewards.',
+  description: 'Decentralized SocialFi micro-blogging protocol on BOT Chain & Base. Post updates, tip in USDT, and earn $XMS rewards.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',

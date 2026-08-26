@@ -185,7 +185,7 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="flex items-center space-x-3 mt-1 text-xs font-mono text-[#8B92A3]">
-                  <span>Network: <strong className="text-[#3ED6C4]">Base Sepolia</strong></span>
+                  <span>Network: <strong className="text-[#3ED6C4]">{CONTRACT_ADDRESSES.chainName}</strong></span>
                   <span>•</span>
                   {address && (
                     <a

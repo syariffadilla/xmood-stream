@@ -75,7 +75,7 @@ export default function TipModal({ isOpen, onClose, post, onTipSuccess }) {
           functionName: 'approve',
           args: [CONTRACT_ADDRESSES.TipVault, parseUnits('1000000', 6)], // approve large allowance for seamless UX
         });
-        toast.loading('Mining approval on Base Sepolia...', { id: 'tip-process' });
+        toast.loading('Mining approval on-chain...', { id: 'tip-process' });
         await new Promise((r) => setTimeout(r, 3000));
         await refetchAllowance();
       }

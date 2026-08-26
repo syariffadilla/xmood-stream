@@ -103,7 +103,7 @@ export default function FeedPage() {
         validPosts.push({
           id: 901,
           author: '0x3ED6C4092bF52B289659f81643c1626788B2A109',
-          content: 'Just deployed and optimized the X-Mood Stream SocialFi smart contracts on Base Sepolia. 95% creator split is now active! ⚡🚀 #BaseSepolia #SocialFi',
+          content: 'Just deployed and optimized the X-Mood Stream SocialFi smart contracts on BOT Chain. 95% creator split is now active! ⚡🚀 #BOTChain #SocialFi',
           timestamp: Math.floor(Date.now() / 1000) - 3600,
           tipsUsdt: 25.0,
           isGenesis: true,
@@ -143,7 +143,7 @@ export default function FeedPage() {
 
     setIsBroadcasting(true);
     try {
-      toast.loading('Broadcasting on-chain to Base Sepolia...', { id: 'quick-broadcast' });
+      toast.loading('Broadcasting on-chain...', { id: 'quick-broadcast' });
 
       await writeContractAsync({
         address: CONTRACT_ADDRESSES.XMoodStreamCore,
@@ -369,13 +369,30 @@ export default function FeedPage() {
                         >
                           <Heart className="w-3.5 h-3.5" />
                           <span>{isOwnPost ? 'Your Broadcast' : 'Send Tip'}</span>
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
+            {/* Micro-Stream Feed List */}
+            <div className="space-y-4">
+              {loading ? (
+                <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-12 text-center text-[#8B92A3] font-mono text-sm space-y-3">
+                  <div className="w-6 h-6 border-2 border-[#3ED6C4] border-t-transparent rounded-full animate-spin mx-auto"></div>
+                  <p>Loading verifiable micro-streams from smart contract...</p>
+                </div>
+              ) : posts.length === 0 ? (
+                <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-12 text-center text-[#8B92A3]">
+                  <MessageSquare className="w-8 h-8 mx-auto text-[#8B92A3] mb-2 opacity-50" />
+                  <p className="font-grotesk font-semibold text-sm text-[#ECEDEF]">No streams recorded yet</p>
+                  <p className="text-xs font-mono text-[#8B92A3] mt-1">Be the first to broadcast on {CONTRACT_ADDRESSES.chainName}!</p>
+                </div>
+              ) : (
+                posts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onTipClick={handleTipClick}
+                    onRefresh={fetchPostsFromChain}
+                  />
+                ))
+              )}
+            </div>
 
           </div>
 
@@ -386,13 +403,13 @@ export default function FeedPage() {
             <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 shadow-lg space-y-4">
               <div className="flex items-center space-x-2 text-sm font-grotesk font-bold text-[#ECEDEF] ledger-border-b pb-3">
                 <ShieldCheck className="w-4 h-4 text-[#3ED6C4]" />
-                <span>Base Sepolia Protocol</span>
+                <span>{CONTRACT_ADDRESSES.chainName} Protocol</span>
               </div>
 
               <div className="space-y-2.5 text-xs font-mono">
                 <div className="flex justify-between text-[#8B92A3]">
                   <span>Network:</span>
-                  <span className="text-[#ECEDEF] font-semibold">Base Sepolia (84532)</span>
+                  <span className="text-[#ECEDEF] font-semibold">{CONTRACT_ADDRESSES.chainName} ({CONTRACT_ADDRESSES.chainId})</span>
                 </div>
                 <div className="flex justify-between text-[#8B92A3]">
                   <span>Creator Royalty:</span>
@@ -414,12 +431,12 @@ export default function FeedPage() {
 
               <div className="pt-2 border-t border-[#282D3B]">
                 <a
-                  href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.XMoodStreamCore}`}
+                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.XMoodStreamCore}`}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full flex items-center justify-center space-x-1.5 py-2 rounded-lg bg-[#12151C] hover:bg-[#12151C]/80 border border-[#282D3B] text-xs font-mono text-[#8B92A3] hover:text-[#ECEDEF] transition-colors"
                 >
-                  <span>View Core Contract on Basescan</span>
+                  <span>View Core Contract on Explorer</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
