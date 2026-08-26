@@ -1,9 +1,24 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { createWalletClient, http, parseUnits, isAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
 import { CONTRACT_ADDRESSES } from '../../../contracts/addresses';
 import { MOCK_USDT_ABI } from '../../../contracts/abis';
+
+const baseSepolia = {
+  id: 84532,
+  name: 'Base Sepolia',
+  nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://sepolia.base.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'BaseScan', url: 'https://sepolia.basescan.org' },
+  },
+  testnet: true,
+};
 
 // In-memory rate-limit trackers (per IP & per Wallet Address)
 const ipClaimMap = new Map();
