@@ -73,12 +73,77 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-[#ECEDEF] font-grotesk font-semibold text-xs uppercase mb-2">
-              Security & Transparency
+            <h4 className="text-[#ECEDEF] font-grotesk font-semibold text-xs uppercase mb-2 text-[#3ED6C4]">
+              BOT Chain Hub
             </h4>
-            <p className="text-xs text-[#8B92A3] font-sans">
-              Non-custodial. Tips are routed direct-to-wallet with automated 5% treasury allocation.
-            </p>
+            <ul className="space-y-1">
+              <li>
+                <a
+                  href="https://www.botchain.ai"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                >
+                  <span>Official Website</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://faucet.botchain.ai"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                >
+                  <span>Testnet Faucet</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://dex.botchain.ai/#/swap"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                >
+                  <span>BDEX Swap</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://bridge.botchain.ai"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                >
+                  <span>Cross-Chain Bridge</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://dev-docs.botchain.ai/docs/Developers/quick-guide/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                >
+                  <span>Developer Docs</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/BOTChain-bot"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                >
+                  <span>Official GitHub</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+            </ul>
           </div>
 
         </div>
