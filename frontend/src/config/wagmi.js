@@ -1,7 +1,6 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { defineChain } from 'viem';
 import { http } from 'viem';
-import { baseSepolia } from 'wagmi/chains';
 
 export const botchainTestnet = defineChain({
   id: 968,
@@ -34,7 +33,7 @@ export const botchain = defineChain({
 export const config = getDefaultConfig({
   appName: 'X-Mood Stream',
   projectId: '3fcc6bba6f1de962d911bb5b5c3dba68',
-  chains: [botchainTestnet, botchain, baseSepolia],
+  chains: [botchainTestnet, botchain],
   transports: {
     [botchainTestnet.id]: http('https://rpc.bohr.life', {
       batch: true,
@@ -45,11 +44,6 @@ export const config = getDefaultConfig({
       batch: true,
       retryCount: 2,
       timeout: 10000,
-    }),
-    [baseSepolia.id]: http('https://sepolia.base.org', {
-      batch: true,
-      retryCount: 2,
-      timeout: 8000,
     }),
   },
   ssr: false,

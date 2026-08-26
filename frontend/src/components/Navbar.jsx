@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount, useReadContract, useSwitchChain } from 'wagmi';
 import { CONTRACT_ADDRESSES } from '../contracts/addresses';
 import { MOCK_USDT_ABI, REWARD_TOKEN_ABI } from '../contracts/abis';
 import { formatUnits } from 'viem';
@@ -28,11 +28,13 @@ import {
   Wallet,
   Menu,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function Navbar({ onOpenCreate, onOpenFaucet }) {
   const pathname = usePathname();
   const { address, isConnected, chain } = useAccount();
+  const { switchChain } = useSwitchChain();
   const [isEcosystemOpen, setIsEcosystemOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -76,6 +78,8 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
     { name: 'Rewards', href: '/rewards', icon: Gift },
     { name: 'Profile', href: '/profile', icon: User },
   ];
+
+  const isWrongChain = isConnected && chain && chain.id !== 968 && chain.id !== 677;
 
   const ecosystemLinks = [
     {
@@ -159,11 +163,22 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
               </div>
             </Link>
 
-            {/* Network indicator badge */}
-            <div className="hidden lg:flex items-center space-x-1.5 bg-[#0E131F] border border-[#1E293B] px-2 py-0.5 rounded-full text-[11px] font-mono text-[#00F5A0]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00F5A0] animate-pulse"></span>
-              <span className="font-medium">{chain?.name || 'BOT Chain'}</span>
-            </div>
+            {/* Network indicator badge & 1-click switcher */}
+            {isWrongChain ? (
+              <button
+                onClick={() => switchChain && switchChain({ chainId: 968 })}
+                className="flex items-center space-x-1.5 bg-[#F59E0B]/20 border border-[#F59E0B] px-2.5 py-1 rounded-full text-[11px] font-mono text-[#F59E0B] hover:bg-[#F59E0B] hover:text-[#090C15] transition-all animate-pulse shadow-md"
+                title="Click to switch wallet to BOT Chain Testnet"
+              >
+                <AlertTriangle className="w-3 h-3 text-[#F59E0B]" />
+                <span className="font-bold">Switch to BOT Chain</span>
+              </button>
+            ) : (
+              <div className="hidden sm:flex items-center space-x-1.5 bg-[#0E131F] border border-[#1E293B] px-2 py-0.5 rounded-full text-[11px] font-mono text-[#00F5A0]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00F5A0] animate-pulse"></span>
+                <span className="font-medium">{chain?.name || 'BOT Chain'}</span>
+              </div>
+            )}
           </div>
 
           {/* CENTER: Navigation Links & Ecosystem Dropdown (Desktop) */}
