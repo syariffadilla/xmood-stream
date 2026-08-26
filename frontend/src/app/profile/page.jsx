@@ -21,7 +21,8 @@ import {
   Copy, 
   Layers,
   ArrowUpRight,
-  TrendingUp
+  TrendingUp,
+  Compass
 } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -33,14 +34,14 @@ export default function ProfilePage() {
   const [userPosts, setUserPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
-  // Read native ETH balance
-  const { data: ethBalance } = useBalance({
-    address,
+  // Read native BOT balance
+  const { data: nativeBalance } = useBalance({
+    address: address,
     query: { enabled: !!address },
   });
 
-  // Read mUSDT balance
-  const { data: usdtBalance } = useReadContract({
+  // Read mUSDT Balance
+  const { data: usdtBalance, refetch: refetchUsdt } = useReadContract({
     address: CONTRACT_ADDRESSES.MockUSDT,
     abi: MOCK_USDT_ABI,
     functionName: 'balanceOf',
@@ -48,8 +49,8 @@ export default function ProfilePage() {
     query: { enabled: !!address },
   });
 
-  // Read $XMS balance
-  const { data: xmsBalance } = useReadContract({
+  // Read XMS Balance
+  const { data: xmsBalance, refetch: refetchXms } = useReadContract({
     address: CONTRACT_ADDRESSES.RewardToken,
     abi: REWARD_TOKEN_ABI,
     functionName: 'balanceOf',
@@ -57,7 +58,7 @@ export default function ProfilePage() {
     query: { enabled: !!address },
   });
 
-  // Read total tips received by user
+  // Read Tips Received from TipVault
   const { data: totalTipsReceived } = useReadContract({
     address: CONTRACT_ADDRESSES.TipVault,
     abi: TIP_VAULT_ABI,
@@ -66,7 +67,7 @@ export default function ProfilePage() {
     query: { enabled: !!address },
   });
 
-  // Read total tips sent by user
+  // Read Tips Sent from TipVault
   const { data: totalTipsSent } = useReadContract({
     address: CONTRACT_ADDRESSES.TipVault,
     abi: TIP_VAULT_ABI,
@@ -75,8 +76,8 @@ export default function ProfilePage() {
     query: { enabled: !!address },
   });
 
-  // Read user posts count
-  const { data: postCount } = useReadContract({
+  // Read User Post Count
+  const { data: userPostCount } = useReadContract({
     address: CONTRACT_ADDRESSES.XMoodStreamCore,
     abi: CORE_ABI,
     functionName: 'getUserPostCount',
@@ -84,68 +85,80 @@ export default function ProfilePage() {
     query: { enabled: !!address },
   });
 
-  // Fetch specific posts by user
-  const fetchUserPosts = async () => {
-    if (!publicClient || !address) return;
-    setLoadingPosts(true);
-    try {
-      const postIds = await publicClient.readContract({
-        address: CONTRACT_ADDRESSES.XMoodStreamCore,
-        abi: CORE_ABI,
-        functionName: 'getUserPosts',
-        args: [address],
-      });
-
-      const list = [];
-      for (const id of postIds) {
-        try {
-          const post = await publicClient.readContract({
-            address: CONTRACT_ADDRESSES.XMoodStreamCore,
-            abi: CORE_ABI,
-            functionName: 'getPost',
-            args: [id],
-          });
-
-          const postTipAmount = await publicClient.readContract({
-            address: CONTRACT_ADDRESSES.TipVault,
-            abi: TIP_VAULT_ABI,
-            functionName: 'postTips',
-            args: [id],
-          });
-
-          list.push({
-            id: Number(post.id),
-            author: post.author,
-            content: post.contentHash,
-            timestamp: Number(post.timestamp),
-            tipsUsdt: parseFloat(formatUnits(postTipAmount, 6)),
-          });
-        } catch (e) {
-          console.error(e);
-        }
+  // Fetch author posts from smart contract
+  useEffect(() => {
+    async function loadUserPosts() {
+      if (!publicClient || !address) {
+        setLoadingPosts(false);
+        return;
       }
 
-      setUserPosts(list.reverse());
-    } catch (err) {
-      console.error('Failed to load user posts:', err);
-    } finally {
-      setLoadingPosts(false);
-    }
-  };
+      setLoadingPosts(true);
+      try {
+        const totalPosts = await publicClient.readContract({
+          address: CONTRACT_ADDRESSES.XMoodStreamCore,
+          abi: CORE_ABI,
+          functionName: 'getTotalPosts',
+        });
 
-  useEffect(() => {
-    fetchUserPosts();
-  }, [publicClient, address, postCount]);
+        const count = Number(totalPosts);
+        const postsFound = [];
+
+        for (let i = count; i >= 1; i--) {
+          try {
+            const post = await publicClient.readContract({
+              address: CONTRACT_ADDRESSES.XMoodStreamCore,
+              abi: CORE_ABI,
+              functionName: 'getPost',
+              args: [BigInt(i)],
+            });
+
+            if (post.author.toLowerCase() === address.toLowerCase()) {
+              const tipData = await publicClient.readContract({
+                address: CONTRACT_ADDRESSES.TipVault,
+                abi: TIP_VAULT_ABI,
+                functionName: 'getPostTips',
+                args: [BigInt(i)],
+              });
+
+              postsFound.push({
+                id: Number(post.id),
+                author: post.author,
+                content: post.content,
+                timestamp: Number(post.timestamp),
+                tipsUsdt: parseFloat(formatUnits(tipData[0], 6)),
+              });
+            }
+          } catch (e) {
+            // ignore single post error
+          }
+        }
+
+        setUserPosts(postsFound);
+      } catch (err) {
+        console.error('Failed to load profile posts:', err);
+      } finally {
+        setLoadingPosts(false);
+      }
+    }
+
+    loadUserPosts();
+  }, [publicClient, address, userPostCount]);
 
   const copyAddress = () => {
-    if (address) {
-      navigator.clipboard.writeText(address);
-      toast.success('Address copied to clipboard!');
-    }
+    if (!address) return;
+    navigator.clipboard.writeText(address);
+    toast.success('Address copied to clipboard!');
   };
 
+  const usdtFormatted = usdtBalance !== undefined ? parseFloat(formatUnits(usdtBalance, 6)).toFixed(2) : '0.00';
+  const xmsFormatted = xmsBalance !== undefined ? parseFloat(formatUnits(xmsBalance, 18)).toFixed(2) : '0.00';
+  const nativeFormatted = nativeBalance ? parseFloat(nativeBalance.formatted).toFixed(3) : '0.000';
+  const tipsReceivedFormatted = totalTipsReceived !== undefined ? parseFloat(formatUnits(totalTipsReceived, 6)).toFixed(2) : '0.00';
+  const tipsSentFormatted = totalTipsSent !== undefined ? parseFloat(formatUnits(totalTipsSent, 6)).toFixed(2) : '0.00';
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#12151C] text-[#ECEDEF]">
+    <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6]">
       <Navbar
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenFaucet={() => setIsFaucetOpen(true)}
@@ -154,29 +167,23 @@ export default function ProfilePage() {
       <main className="flex-grow max-w-5xl mx-auto px-4 sm:px-6 w-full py-8 space-y-6">
         
         {/* Profile Card Header */}
-        <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-6 shadow-xl relative overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="bg-gradient-to-br from-[#0E131F] via-[#111726] to-[#090C15] border border-[#1E293B] rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
             
             <div className="flex items-center space-x-4">
-              {/* Avatar */}
-              <div className="relative w-16 h-16 rounded-xl bg-gradient-to-br from-[#3ED6C4] to-[#1E56E0] p-0.5 shadow-lg">
-                <div className="w-full h-full bg-[#1B1F29] rounded-[10px] flex items-center justify-center font-mono font-bold text-xl text-[#3ED6C4]">
-                  {address ? address.slice(2, 4).toUpperCase() : '??'}
-                </div>
-                {isConnected && (
-                  <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-[#3FA796] border-2 border-[#1B1F29] rounded-full"></span>
-                )}
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center font-mono text-xl font-bold text-[#090C15] shadow-xl shadow-[#00F5A0]/20">
+                {address ? address.slice(2, 4).toUpperCase() : '0x'}
               </div>
 
               <div>
                 <div className="flex items-center space-x-2">
-                  <h1 className="font-grotesk font-bold text-xl text-[#ECEDEF]">
-                    {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Wallet Not Connected'}
+                  <h1 className="font-grotesk font-bold text-xl sm:text-2xl text-[#F3F4F6]">
+                    {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Wallet Disconnected'}
                   </h1>
                   {address && (
                     <button
                       onClick={copyAddress}
-                      className="p-1 text-[#8B92A3] hover:text-[#3ED6C4] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-[#182032] text-[#94A3B8] hover:text-[#00F5A0] transition-colors"
                       title="Copy Address"
                     >
                       <Copy className="w-4 h-4" />
@@ -184,17 +191,17 @@ export default function ProfilePage() {
                   )}
                 </div>
                 
-                <div className="flex items-center space-x-3 mt-1 text-xs font-mono text-[#8B92A3]">
-                  <span>Network: <strong className="text-[#3ED6C4]">{CONTRACT_ADDRESSES.chainName}</strong></span>
+                <div className="flex items-center space-x-3 mt-1 text-xs font-mono text-[#94A3B8]">
+                  <span>Network: <strong className="text-[#00F5A0]">{CONTRACT_ADDRESSES.chainName}</strong></span>
                   <span>•</span>
                   {address && (
                     <a
-                      href={`https://sepolia.basescan.org/address/${address}`}
+                      href={`${CONTRACT_ADDRESSES.explorer}/address/${address}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="hover:text-[#ECEDEF] flex items-center space-x-1"
+                      className="text-[#00F5A0] hover:underline flex items-center space-x-1"
                     >
-                      <span>Basescan</span>
+                      <span>View on BotScan</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -202,123 +209,115 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Faucet Trigger */}
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setIsFaucetOpen(true)}
-                className="flex items-center space-x-1.5 px-3.5 py-2 rounded-lg bg-[#12151C] border border-[#E8A33D]/50 hover:bg-[#E8A33D]/10 text-[#E8A33D] font-mono text-xs font-semibold transition-all"
+                className="px-4 py-2.5 rounded-xl bg-[#090C15] border border-[#F59E0B]/50 hover:bg-[#F59E0B]/10 text-[#F59E0B] font-mono text-xs font-semibold flex items-center space-x-2 transition-all"
               >
                 <Coins className="w-4 h-4" />
-                <span>Get mUSDT Faucet</span>
-              </button>
-
-              <button
-                onClick={() => setIsCreateOpen(true)}
-                className="flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-[#3ED6C4] to-[#1E56E0] text-[#12151C] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 shadow-md shadow-[#3ED6C4]/20 transition-all"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>New Broadcast</span>
+                <span>Get +100 mUSDT</span>
               </button>
             </div>
 
           </div>
         </div>
 
-        {/* Ledger Balance & Performance Metrics */}
+        {/* Balance & Telemetry Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
-          {/* mUSDT Balance */}
-          <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 shadow-md">
-            <div className="flex justify-between items-center text-[#8B92A3] mb-2 font-mono text-xs">
-              <span>mUSDT Balance</span>
-              <Coins className="w-4 h-4 text-[#E8A33D]" />
+          {/* Card 1: Native Gas (BOT) */}
+          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
+              <span>Native Gas</span>
+              <Compass className="w-4 h-4 text-[#00F5A0]" />
             </div>
-            <div className="font-mono text-2xl font-bold text-[#E8A33D]">
-              {usdtBalance !== undefined ? parseFloat(formatUnits(usdtBalance, 6)).toFixed(2) : '0.00'}
+            <div className="font-mono text-2xl font-extrabold text-[#F3F4F6] pt-1">
+              {nativeFormatted} <span className="text-xs text-[#94A3B8]">BOT</span>
             </div>
-            <div className="text-[11px] font-mono text-[#8B92A3] mt-1">
-              For tipping creators on-chain
-            </div>
-          </div>
-
-          {/* $XMS Balance */}
-          <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 shadow-md">
-            <div className="flex justify-between items-center text-[#8B92A3] mb-2 font-mono text-xs">
-              <span>$XMS Rewards</span>
-              <Sparkles className="w-4 h-4 text-[#3FA796]" />
-            </div>
-            <div className="font-mono text-2xl font-bold text-[#3FA796]">
-              {xmsBalance !== undefined ? parseFloat(formatUnits(xmsBalance, 18)).toFixed(2) : '0.00'}
-            </div>
-            <div className="text-[11px] font-mono text-[#8B92A3] mt-1">
-              Earned via SocialFi activity
+            <div className="text-[11px] font-mono text-[#00F5A0]">
+              BOT Chain Testnet
             </div>
           </div>
 
-          {/* Tips Received */}
-          <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 shadow-md">
-            <div className="flex justify-between items-center text-[#8B92A3] mb-2 font-mono text-xs">
-              <span>Tips Received</span>
-              <TrendingUp className="w-4 h-4 text-[#3ED6C4]" />
+          {/* Card 2: mUSDT Balance */}
+          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
+              <span>Tipping Balance</span>
+              <Coins className="w-4 h-4 text-[#F59E0B]" />
             </div>
-            <div className="font-mono text-2xl font-bold text-[#ECEDEF]">
-              {totalTipsReceived !== undefined ? parseFloat(formatUnits(totalTipsReceived, 6)).toFixed(2) : '0.00'} <span className="text-xs text-[#8B92A3]">USDT</span>
+            <div className="font-mono text-2xl font-extrabold text-[#F59E0B] pt-1">
+              {usdtFormatted} <span className="text-xs text-[#94A3B8]">USDT</span>
             </div>
-            <div className="text-[11px] font-mono text-[#8B92A3] mt-1">
-              Direct creator earnings (95%)
+            <div className="text-[11px] font-mono text-[#94A3B8]">
+              Sent: {tipsSentFormatted} USDT
             </div>
           </div>
 
-          {/* Total Posts */}
-          <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-5 shadow-md">
-            <div className="flex justify-between items-center text-[#8B92A3] mb-2 font-mono text-xs">
-              <span>Total Posts</span>
-              <Layers className="w-4 h-4 text-[#8B92A3]" />
+          {/* Card 3: XMS Token Balance */}
+          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
+              <span>Loyalty & Gas Token</span>
+              <Sparkles className="w-4 h-4 text-[#00F5A0]" />
             </div>
-            <div className="font-mono text-2xl font-bold text-[#ECEDEF]">
-              {postCount ? postCount.toString() : '0'}
+            <div className="font-mono text-2xl font-extrabold text-[#00F5A0] pt-1">
+              {xmsFormatted} <span className="text-xs text-[#94A3B8]">XMS</span>
             </div>
-            <div className="text-[11px] font-mono text-[#8B92A3] mt-1">
-              Verified broadcasts on Core
+            <div className="text-[11px] font-mono text-[#00F5A0]">
+              Active Protocol Utility
+            </div>
+          </div>
+
+          {/* Card 4: Tips Earned */}
+          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
+            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
+              <span>Creator Earnings</span>
+              <Heart className="w-4 h-4 text-[#F59E0B]" />
+            </div>
+            <div className="font-mono text-2xl font-extrabold text-[#F3F4F6] pt-1">
+              {tipsReceivedFormatted} <span className="text-xs text-[#94A3B8]">USDT</span>
+            </div>
+            <div className="text-[11px] font-mono text-[#00F5A0]">
+              95% Direct Vault Split
             </div>
           </div>
 
         </div>
 
-        {/* User Broadcast History */}
-        <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-6 shadow-xl">
-          <div className="flex justify-between items-center ledger-border-b pb-4 mb-4">
+        {/* User Broadcasts List */}
+        <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between ledger-border-b pb-4">
             <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#3ED6C4]"></span>
-              <h2 className="font-grotesk font-bold text-lg text-[#ECEDEF]">
-                Your Broadcast Ledger
+              <MessageSquare className="w-5 h-5 text-[#00F5A0]" />
+              <h2 className="font-grotesk font-bold text-lg text-[#F3F4F6]">
+                Your Broadcasted Streams
               </h2>
             </div>
-            <span className="font-mono text-xs text-[#8B92A3]">
-              {userPosts.length} Entries
+            <span className="text-xs font-mono text-[#94A3B8]">
+              {userPosts.length} Streams Recorded
             </span>
           </div>
 
           {!isConnected ? (
-            <div className="p-8 text-center text-xs font-mono text-[#8B92A3]">
-              Please connect your wallet to view your broadcast ledger and activity.
+            <div className="py-12 text-center text-sm font-mono text-[#94A3B8]">
+              Connect your wallet to view your on-chain broadcast history
             </div>
           ) : loadingPosts ? (
-            <div className="space-y-3">
-              {[1, 2].map((n) => (
-                <div key={n} className="bg-[#12151C] p-4 rounded-lg animate-pulse h-20"></div>
-              ))}
+            <div className="py-12 text-center text-sm font-mono text-[#94A3B8] space-y-2">
+              <div className="w-6 h-6 border-2 border-[#00F5A0] border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p>Scanning blockchain for your posts...</p>
             </div>
           ) : userPosts.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-xs font-mono text-[#8B92A3] mb-3">
-                You haven't broadcasted any posts on-chain yet.
+            <div className="py-12 text-center space-y-3">
+              <Layers className="w-8 h-8 text-[#94A3B8] mx-auto opacity-50" />
+              <p className="font-grotesk font-semibold text-sm text-[#F3F4F6]">
+                No broadcasts published yet
               </p>
               <button
                 onClick={() => setIsCreateOpen(true)}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#3ED6C4] to-[#1E56E0] text-[#12151C] font-grotesk font-bold text-xs uppercase"
+                className="px-4 py-2 rounded-xl bg-[#00F5A0] hover:bg-[#00F5A0]/90 text-[#090C15] font-grotesk font-bold text-xs uppercase transition-all"
               >
-                Broadcast Your First Post
+                Create Your First Post
               </button>
             </div>
           ) : (
@@ -326,28 +325,19 @@ export default function ProfilePage() {
               {userPosts.map((post) => (
                 <div
                   key={post.id}
-                  className="bg-[#10131A] border border-[#282D3B] rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#3ED6C4]/40 transition-colors"
+                  className="bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/40 rounded-xl p-4 transition-all"
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-mono text-xs text-[#3ED6C4] font-semibold">
-                        Post #{post.id}
-                      </span>
-                      <span className="text-[#656C7D]">•</span>
-                      <span className="font-mono text-[11px] text-[#8B92A3]">
-                        {post.timestamp > 0 ? new Date(post.timestamp * 1000).toLocaleString() : ''}
-                      </span>
-                    </div>
-                    <p className="font-sans text-sm text-[#ECEDEF]">
-                      {post.content}
-                    </p>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-xs font-mono text-[#94A3B8]">
+                      TX #{post.id} • {post.timestamp > 0 ? new Date(post.timestamp * 1000).toLocaleString() : 'Recent'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-lg bg-[#F59E0B]/20 text-[#F59E0B] font-mono text-xs font-bold border border-[#F59E0B]/30">
+                      +{post.tipsUsdt.toFixed(2)} USDT Tipped
+                    </span>
                   </div>
-
-                  <div className="flex items-center space-x-2 shrink-0">
-                    <div className="px-3 py-1 rounded bg-[#1B1F29] border border-[#E8A33D]/30 font-mono text-xs text-[#E8A33D] font-bold">
-                      +{post.tipsUsdt.toFixed(2)} USDT
-                    </div>
-                  </div>
+                  <p className="font-sans text-sm text-[#F3F4F6] leading-relaxed my-2">
+                    {post.content}
+                  </p>
                 </div>
               ))}
             </div>
@@ -361,7 +351,6 @@ export default function ProfilePage() {
       <CreatePostModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onPostCreated={fetchUserPosts}
       />
       <FaucetModal
         isOpen={isFaucetOpen}

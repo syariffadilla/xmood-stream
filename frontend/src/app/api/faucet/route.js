@@ -7,15 +7,15 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { CONTRACT_ADDRESSES } from '../../../contracts/addresses';
 import { MOCK_USDT_ABI } from '../../../contracts/abis';
 
-const baseSepolia = {
-  id: 84532,
-  name: 'Base Sepolia',
-  nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+const botchainTestnet = {
+  id: 968,
+  name: 'BOT Chain Testnet',
+  nativeCurrency: { name: 'BOT', symbol: 'BOT', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://sepolia.base.org'] },
+    default: { http: ['https://rpc.bohr.life'] },
   },
   blockExplorers: {
-    default: { name: 'BaseScan', url: 'https://sepolia.basescan.org' },
+    default: { name: 'BotScan', url: 'https://scan.botchain.ai' },
   },
   testnet: true,
 };
@@ -40,32 +40,36 @@ function getClientIp(request) {
 
 // GET: Check eligibility for IP & Address
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const address = searchParams.get('address')?.toLowerCase();
-  const clientIp = getClientIp(request);
-  const now = Date.now();
+  try {
+    const { searchParams } = new URL(request.url);
+    const address = searchParams.get('address')?.toLowerCase();
+    const clientIp = getClientIp(request);
+    const now = Date.now();
 
-  const ipLastClaim = ipClaimMap.get(clientIp) || 0;
-  const addressLastClaim = address ? (addressClaimMap.get(address) || 0) : 0;
+    const ipLastClaim = ipClaimMap.get(clientIp) || 0;
+    const addressLastClaim = address ? (addressClaimMap.get(address) || 0) : 0;
 
-  const ipElapsed = now - ipLastClaim;
-  const addressElapsed = now - addressLastClaim;
+    const ipElapsed = now - ipLastClaim;
+    const addressElapsed = now - addressLastClaim;
 
-  const isIpLocked = ipElapsed < COOLDOWN_MS;
-  const isAddressLocked = address ? addressElapsed < COOLDOWN_MS : false;
+    const isIpLocked = ipElapsed < COOLDOWN_MS;
+    const isAddressLocked = address ? addressElapsed < COOLDOWN_MS : false;
 
-  const canClaim = !isIpLocked && !isAddressLocked;
-  const remainingMs = Math.max(
-    isIpLocked ? COOLDOWN_MS - ipElapsed : 0,
-    isAddressLocked ? COOLDOWN_MS - addressElapsed : 0
-  );
+    const canClaim = !isIpLocked && !isAddressLocked;
+    const remainingMs = Math.max(
+      isIpLocked ? COOLDOWN_MS - ipElapsed : 0,
+      isAddressLocked ? COOLDOWN_MS - addressElapsed : 0
+    );
 
-  return NextResponse.json({
-    canClaim,
-    remainingSeconds: Math.ceil(remainingMs / 1000),
-    clientIp,
-    cooldownPeriodHours: 24,
-  });
+    return NextResponse.json({
+      canClaim,
+      remainingSeconds: Math.ceil(remainingMs / 1000),
+      clientIp,
+      cooldownPeriodHours: 24,
+    });
+  } catch (err) {
+    return NextResponse.json({ canClaim: true, remainingSeconds: 0 });
+  }
 }
 
 // POST: Claim 100 mUSDT
@@ -117,7 +121,7 @@ export async function POST(request) {
     const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) {
       return NextResponse.json(
-        { error: 'Server faucet configuration missing PRIVATE_KEY' },
+        { error: 'Server faucet configuration missing PRIVATE_KEY. Please use Direct Minting.' },
         { status: 500 }
       );
     }
@@ -127,8 +131,8 @@ export async function POST(request) {
 
     const client = createWalletClient({
       account,
-      chain: baseSepolia,
-      transport: http(process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'),
+      chain: botchainTestnet,
+      transport: http(process.env.BOTCHAIN_TESTNET_RPC_URL || 'https://rpc.bohr.life'),
     });
 
     // Mint 100 mUSDT (100 * 10^6)
@@ -154,7 +158,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('Faucet error:', error);
     return NextResponse.json(
-      { error: error.shortMessage || error.message || 'Faucet distribution failed' },
+      { error: error.shortMessage || error.message || 'Faucet distribution failed. Please try Direct Mint.' },
       { status: 500 }
     );
   }

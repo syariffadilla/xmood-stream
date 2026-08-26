@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract } from 'wagmi';
+import { CONTRACT_ADDRESSES } from '../contracts/addresses';
+import { MOCK_USDT_ABI } from '../contracts/abis';
+import { parseUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { X, Coins, CheckCircle, Loader2, ShieldAlert, Clock, Globe } from 'lucide-react';
+import { X, Coins, CheckCircle, Loader2, ShieldAlert, Clock, Globe, Zap } from 'lucide-react';
 
 export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
   const [isMinting, setIsMinting] = useState(false);
@@ -11,22 +14,25 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
   const [remainingSecs, setRemainingSecs] = useState(0);
   const [clientIp, setClientIp] = useState('');
   const { address, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
 
   // Check IP rate-limit status from API
   const checkStatus = async () => {
     try {
       const res = await fetch(`/api/faucet?address=${address || ''}`);
-      const data = await res.json();
-      setCanClaim(data.canClaim);
-      setRemainingSecs(data.remainingSeconds || 0);
-      if (data.clientIp) setClientIp(data.clientIp);
+      if (res.ok) {
+        const data = await res.json();
+        setCanClaim(data.canClaim);
+        setRemainingSecs(data.remainingSeconds || 0);
+        if (data.clientIp) setClientIp(data.clientIp);
+      }
     } catch (e) {
-      console.error('Failed to check faucet status:', e);
+      console.warn('Faucet status check fallback:', e);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && address) {
       checkStatus();
     }
   }, [isOpen, address]);
@@ -55,7 +61,8 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
     return `${hours.toString().padStart(2, '0')}h ${mins.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
   };
 
-  const handleMint = async () => {
+  // Direct On-Chain Minting (100% reliable fallback)
+  const handleDirectMint = async () => {
     if (!address) {
       toast.error('Please connect your wallet first!');
       return;
@@ -63,7 +70,36 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
 
     setIsMinting(true);
     try {
-      toast.loading('Requesting 100 mUSDT from IP-rate limited faucet...', { id: 'faucet-mint' });
+      toast.loading('Minting 100 mUSDT on BOT Chain Testnet...', { id: 'faucet-mint' });
+
+      await writeContractAsync({
+        address: CONTRACT_ADDRESSES.MockUSDT,
+        abi: MOCK_USDT_ABI,
+        functionName: 'mint',
+        args: [address, parseUnits('100', 6)],
+      });
+
+      toast.success('🎉 100 mUSDT minted successfully on BOT Chain!', { id: 'faucet-mint' });
+      if (onMintSuccess) onMintSuccess();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.shortMessage || err.message || 'Direct mint failed', { id: 'faucet-mint' });
+    } finally {
+      setIsMinting(false);
+    }
+  };
+
+  // Gasless API Claim
+  const handleGaslessClaim = async () => {
+    if (!address) {
+      toast.error('Please connect your wallet first!');
+      return;
+    }
+
+    setIsMinting(true);
+    try {
+      toast.loading('Requesting 100 mUSDT from server faucet...', { id: 'faucet-mint' });
 
       const response = await fetch('/api/faucet', {
         method: 'POST',
@@ -74,7 +110,7 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Faucet claim failed');
+        throw new Error(data.error || 'Server faucet unavailable. Try Direct Mint.');
       }
 
       toast.success('🎉 100 mUSDT successfully credited to your wallet (Gasless)!', { id: 'faucet-mint' });
@@ -83,29 +119,28 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
       if (onMintSuccess) onMintSuccess();
       onClose();
     } catch (err) {
-      console.error(err);
-      toast.error(err.message || 'Faucet claim failed', { id: 'faucet-mint' });
-      checkStatus();
+      console.warn('Gasless faucet notice:', err.message);
+      toast.error(err.message || 'Server claim failed. Please use Direct Mint.', { id: 'faucet-mint' });
     } finally {
       setIsMinting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-      <div className="relative w-full max-w-sm bg-[#1B1F29] border border-[#282D3B] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="relative w-full max-w-sm bg-[#0E131F] border border-[#1E293B] rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#282D3B] bg-[#10131A]/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1E293B] bg-[#090C15]/80">
           <div className="flex items-center space-x-2">
-            <Coins className="w-5 h-5 text-[#E8A33D]" />
-            <h3 className="font-grotesk font-bold text-base text-[#ECEDEF]">
+            <Coins className="w-5 h-5 text-[#F59E0B]" />
+            <h3 className="font-grotesk font-bold text-base text-[#F3F4F6]">
               Testnet mUSDT Faucet
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="text-[#8B92A3] hover:text-[#ECEDEF] p-1 rounded-md hover:bg-[#272A31] transition-colors"
+            className="text-[#94A3B8] hover:text-[#F3F4F6] p-1 rounded-lg hover:bg-[#182032] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -113,75 +148,86 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
 
         {/* Modal Body */}
         <div className="p-6 space-y-4 text-center">
-          <div className="w-16 h-16 rounded-full bg-[#E8A33D]/10 border border-[#E8A33D]/30 flex items-center justify-center mx-auto">
-            <Coins className="w-8 h-8 text-[#E8A33D]" />
+          <div className="w-16 h-16 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/30 flex items-center justify-center mx-auto shadow-lg shadow-[#F59E0B]/10">
+            <Coins className="w-8 h-8 text-[#F59E0B]" />
           </div>
 
           <div>
-            <h4 className="font-grotesk font-bold text-lg text-[#ECEDEF]">
+            <h4 className="font-grotesk font-bold text-lg text-[#F3F4F6]">
               Get Free Testnet USDT
             </h4>
-            <p className="text-xs text-[#8B92A3] font-sans mt-1">
+            <p className="text-xs text-[#94A3B8] font-sans mt-1">
               Mint 100 Mock USDT instantly to test tipping creators on {CONTRACT_ADDRESSES.chainName}.
             </p>
           </div>
 
           {/* Rate limit badge & IP notice */}
-          <div className="bg-[#12151C] border border-[#282D3B] p-3 rounded-lg text-xs font-mono space-y-1.5 text-left">
-            <div className="flex justify-between text-[#ECEDEF]">
-              <span className="text-[#8B92A3]">Allowance:</span>
-              <span className="font-bold text-[#E8A33D]">100.00 mUSDT</span>
+          <div className="bg-[#090C15] border border-[#1E293B] p-3.5 rounded-xl text-xs font-mono space-y-2 text-left">
+            <div className="flex justify-between text-[#F3F4F6]">
+              <span className="text-[#94A3B8]">Allowance:</span>
+              <span className="font-bold text-[#F59E0B]">100.00 mUSDT</span>
             </div>
-            <div className="flex justify-between text-[#8B92A3] text-[11px] pt-1 border-t border-[#282D3B]">
+            <div className="flex justify-between text-[#94A3B8] text-[11px] pt-1.5 border-t border-[#1E293B]">
               <span className="flex items-center space-x-1">
-                <Globe className="w-3 h-3 text-[#3ED6C4]" />
-                <span>Limit Policy:</span>
+                <Globe className="w-3 h-3 text-[#00F5A0]" />
+                <span>Network:</span>
               </span>
-              <span className="text-[#3ED6C4] font-semibold">1x / 24h per IP</span>
+              <span className="text-[#00F5A0] font-semibold">{CONTRACT_ADDRESSES.chainName}</span>
             </div>
-            {clientIp && (
-              <div className="text-[10px] text-[#656C7D] text-right">
-                IP: {clientIp}
-              </div>
-            )}
           </div>
 
           {/* Cooldown Alert if locked */}
           {!canClaim && remainingSecs > 0 && (
-            <div className="p-3 rounded-lg bg-[#93000a]/20 border border-[#93000a]/50 text-xs font-mono text-[#ffb4ab] flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-[#ffb4ab] shrink-0" />
-              <div className="text-left text-[11px]">
-                <span>IP Cooldown active:</span>
-                <strong className="block text-white font-bold">{formatRemainingTime(remainingSecs)}</strong>
+            <div className="bg-[#182032]/80 border border-[#F59E0B]/30 p-3 rounded-xl flex items-center space-x-2.5 text-left text-xs font-mono text-[#F59E0B]">
+              <Clock className="w-4 h-4 shrink-0 text-[#F59E0B]" />
+              <div>
+                <p className="font-bold">Gasless Faucet Cooldown</p>
+                <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                  Resets in: <span className="text-[#F3F4F6] font-semibold">{formatRemainingTime(remainingSecs)}</span>
+                </p>
               </div>
             </div>
           )}
 
-          {/* Action Button */}
-          <button
-            onClick={handleMint}
-            disabled={isMinting || !isConnected || (!canClaim && remainingSecs > 0)}
-            className="w-full flex items-center justify-center space-x-2 py-3 rounded-lg bg-[#E8A33D] hover:bg-[#ffb44a] text-[#12151C] font-grotesk font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-[#E8A33D]/20"
-          >
-            {isMinting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-[#12151C]" />
-                <span>Distributing 100 mUSDT...</span>
-              </>
-            ) : !canClaim && remainingSecs > 0 ? (
-              <>
-                <Clock className="w-4 h-4" />
-                <span>Claimed (Cooldown 24h)</span>
-              </>
-            ) : (
-              <>
-                <Coins className="w-4 h-4" />
-                <span>Claim 100 mUSDT (Gasless)</span>
-              </>
-            )}
-          </button>
-        </div>
+          {/* Action Buttons */}
+          <div className="space-y-2 pt-1">
+            <button
+              onClick={handleDirectMint}
+              disabled={isMinting || !isConnected}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-[#00F5A0]/20 flex items-center justify-center space-x-2 transition-all hover:scale-[1.01]"
+            >
+              {isMinting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-[#090C15]" />
+                  <span>Processing Mint...</span>
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 fill-current text-[#090C15]" />
+                  <span>Mint 100 mUSDT Directly</span>
+                </>
+              )}
+            </button>
 
+            {canClaim && (
+              <button
+                onClick={handleGaslessClaim}
+                disabled={isMinting || !isConnected}
+                className="w-full py-2.5 rounded-xl bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/50 text-[#94A3B8] hover:text-[#F3F4F6] font-grotesk font-semibold text-xs flex items-center justify-center space-x-1.5 transition-all"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#00F5A0]" />
+                <span>Try Gasless Server Claim</span>
+              </button>
+            )}
+          </div>
+
+          {!isConnected && (
+            <p className="text-[11px] font-mono text-[#F59E0B]">
+              ⚠️ Please connect your Web3 wallet first to receive testnet tokens.
+            </p>
+          )}
+
+        </div>
       </div>
     </div>
   );
