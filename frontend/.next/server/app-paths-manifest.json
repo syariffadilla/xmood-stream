@@ -1,9 +1,0 @@
-{
-  "/_not-found/page": "app/_not-found/page.js",
-  "/feed/page": "app/feed/page.js",
-  "/profile/page": "app/profile/page.js",
-  "/rewards/page": "app/rewards/page.js",
-  "/api/faucet/route": "app/api/faucet/route.js",
-  "/leaderboard/page": "app/leaderboard/page.js",
-  "/page": "app/page.js"
-}

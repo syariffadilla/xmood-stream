@@ -13,7 +13,7 @@ frontend/node_modules/
 frontend/.env.local
 seed-wallets.json
 
-# Next.js build output
+# Next.js build output & cache
 .next/
 frontend/.next/
 out/
@@ -27,6 +27,17 @@ cache/
 coverage/
 typechain/
 typechain-types/
+
+# AI perancangan, mockups, screenshots, and AI prompts
+perancangan/
+.agents/
+.gemini/
+ANTIGRAVITY_INSTRUCTIONS.md
+DEPLOYMENT.md
+
+# Keep only the public project README on GitHub
+*.md
+!README.md
 
 # Logs & OS metadata
 *.log
