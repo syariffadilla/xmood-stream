@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>X-Mood Stream - Claim Rewards</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#2a1800",
+                        "on-surface": "#e0e2ec",
+                        "surface": "#10131a",
+                        "outline-variant": "#514536",
+                        "surface-container-high": "#272a31",
+                        "on-primary-fixed-variant": "#643f00",
+                        "inverse-primary": "#835400",
+                        "on-secondary-fixed-variant": "#005046",
+                        "tertiary": "#c6ccdf",
+                        "primary": "#ffc16c",
+                        "on-surface-variant": "#d6c4b0",
+                        "secondary-fixed-dim": "#74d8c5",
+                        "surface-dim": "#10131a",
+                        "tertiary-container": "#aab1c3",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#90f4e1",
+                        "on-secondary-container": "#f4fffb",
+                        "on-secondary": "#003730",
+                        "on-tertiary-fixed-variant": "#404756",
+                        "secondary-container": "#008374",
+                        "background": "#10131a",
+                        "primary-fixed": "#ffddb5",
+                        "on-primary-container": "#5f3c00",
+                        "outline": "#9e8e7c",
+                        "surface-container": "#1d2027",
+                        "error": "#ffb4ab",
+                        "on-background": "#e0e2ec",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-lowest": "#0b0e15",
+                        "on-primary": "#462b00",
+                        "inverse-on-surface": "#2d3038",
+                        "primary-container": "#e8a33d",
+                        "surface-container-low": "#191c23",
+                        "on-tertiary-fixed": "#151c29",
+                        "tertiary-fixed": "#dce2f5",
+                        "on-tertiary-container": "#3d4453",
+                        "surface-tint": "#ffb956",
+                        "on-secondary-fixed": "#00201b",
+                        "on-tertiary": "#29313f",
+                        "tertiary-fixed-dim": "#c0c6d9",
+                        "inverse-surface": "#e0e2ec",
+                        "secondary": "#74d8c5",
+                        "surface-bright": "#363941",
+                        "surface-container-highest": "#32353c",
+                        "primary-fixed-dim": "#ffb956",
+                        "error-container": "#93000a",
+                        "surface-variant": "#32353c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "24px",
+                        "xs": "8px",
+                        "xl": "64px",
+                        "gutter": "20px",
+                        "base": "4px",
+                        "sm": "12px",
+                        "lg": "40px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Space Grotesk"],
+                        "mono-label": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Space Grotesk"],
+                        "display-lg": ["Space Grotesk"],
+                        "mono-data": ["JetBrains Mono"],
+                        "headline-md-mobile": ["Space Grotesk"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "mono-data": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-md-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .ledger-border {
+            border: 1px dashed rgba(139, 146, 163, 0.3);
+        }
+        .ghost-border {
+            border: 1px solid rgba(139, 146, 163, 0.2);
+        }
+        .card-bg {
+            background-color: #1B1F29;
+        }
+        .progress-bar-bg {
+            background-color: #12151C;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col md:flex-row">
+<!-- TopNavBar (Mobile Only) -->
+<header class="md:hidden bg-background text-primary font-headline-sm flex justify-between items-center w-full px-gutter max-w-7xl mx-auto h-16" style="border-bottom: 1px solid rgba(139, 146, 163, 0.2);">
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface">X-Mood Stream</div>
+<button class="bg-primary-container text-[#12151C] px-4 py-2 rounded font-headline-sm text-sm font-medium hover:brightness-105 transition-all">Connect Wallet</button>
+</header>
+<!-- SideNavBar (Desktop Only) -->
+<nav class="hidden md:flex flex-col p-md gap-sm bg-surface text-primary font-body-md fixed left-0 top-0 h-full w-64 bg-surface-container border-r ghost-border z-10">
+<div class="mb-lg">
+<h1 class="font-headline-sm text-headline-sm text-primary font-bold">X-Mood Stream</h1>
+<p class="font-mono-label text-mono-label text-on-surface-variant">SocialFi Ledger</p>
+</div>
+<ul class="flex flex-col gap-sm flex-grow">
+<li>
+<a class="flex items-center gap-3 p-3 rounded-lg text-on-surface-variant hover:bg-surface-bright transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span>Home</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 p-3 rounded-lg text-on-surface-variant hover:bg-surface-bright transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span>Leaderboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 p-3 rounded-lg text-primary font-bold bg-surface-container-high transition-transform scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>Rewards</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 p-3 rounded-lg text-on-surface-variant hover:bg-surface-bright transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span>Profile</span>
+</a>
+</li>
+</ul>
+<button class="mt-auto bg-primary-container text-[#12151C] w-full py-3 rounded font-headline-sm font-medium hover:brightness-105 transition-all">Create Post</button>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow w-full md:ml-64 p-4 md:p-md lg:p-lg max-w-7xl mx-auto pb-24 md:pb-8">
+<!-- Header area for desktop -->
+<div class="hidden md:flex justify-between items-center mb-xl border-b ledger-border pb-4">
+<h2 class="font-headline-md text-headline-md text-on-surface">Rewards Center</h2>
+<button class="bg-primary-container text-[#12151C] px-6 py-2 rounded font-headline-sm text-sm font-medium hover:brightness-105 transition-all">0x7F...3B92</button>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-md">
+<!-- Claimable Rewards Card (Main) -->
+<div class="lg:col-span-8 card-bg rounded-lg p-md ghost-border relative overflow-hidden group hover:brightness-105 transition-all duration-300 transform hover:-translate-y-[2px]">
+<div class="flex justify-between items-start mb-sm ledger-border pb-4">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Available to Claim</h3>
+<p class="font-mono-label text-mono-label text-on-surface-variant mt-1">EPOCH #42 • 2023-10-27</p>
+</div>
+<span class="bg-[#3FA796] text-white px-2 py-1 rounded text-[10px] font-mono-data font-bold uppercase tracking-wider">$XMS Reward</span>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-end mt-lg gap-4">
+<div>
+<div class="font-display-lg text-display-lg text-primary">1,240.50</div>
+<div class="font-mono-data text-mono-data text-on-surface-variant mt-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="info">info</span>
+                            Est. Value: ~14.20 USDT
+                        </div>
+</div>
+<button class="w-full md:w-auto bg-primary-container text-[#12151C] px-8 py-4 rounded font-headline-sm font-bold text-lg hover:brightness-110 active:scale-95 transition-all shadow-[0_0_15px_rgba(232,163,61,0.2)]">Claim Now</button>
+</div>
+</div>
+<!-- Daily Quests Card -->
+<div class="lg:col-span-4 card-bg rounded-lg p-md ghost-border flex flex-col hover:brightness-105 transition-all duration-300 transform hover:-translate-y-[2px]">
+<div class="flex justify-between items-center mb-sm ledger-border pb-4">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Daily Quests</h3>
+<span class="font-mono-data text-mono-data text-primary">2/3</span>
+</div>
+<div class="flex-grow flex flex-col justify-center gap-6 mt-4">
+<!-- Quest 1 -->
+<div>
+<div class="flex justify-between text-sm mb-2">
+<span class="font-body-md text-on-surface">Daily Check-in</span>
+<span class="font-mono-label text-primary">DONE</span>
+</div>
+<div class="w-full h-2 progress-bar-bg rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-full"></div>
+</div>
+</div>
+<!-- Quest 2 -->
+<div>
+<div class="flex justify-between text-sm mb-2">
+<span class="font-body-md text-on-surface">Create a Post</span>
+<span class="font-mono-label text-primary">DONE</span>
+</div>
+<div class="w-full h-2 progress-bar-bg rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-full"></div>
+</div>
+</div>
+<!-- Quest 3 -->
+<div>
+<div class="flex justify-between text-sm mb-2">
+<span class="font-body-md text-on-surface-variant">Tip a Creator</span>
+<span class="font-mono-label text-on-surface-variant">0/1</span>
+</div>
+<div class="w-full h-2 progress-bar-bg rounded-full overflow-hidden">
+<div class="h-full bg-surface-variant w-1/4"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- History Ledger -->
+<div class="lg:col-span-12 card-bg rounded-lg p-md ghost-border mt-md">
+<div class="flex justify-between items-center mb-sm ledger-border pb-4">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Claim History</h3>
+<button class="font-mono-label text-on-surface-variant border border-on-surface-variant/20 px-3 py-1 rounded hover:text-primary transition-colors">Export CSV</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="ledger-border text-on-surface-variant font-mono-label text-mono-label uppercase tracking-wider">
+<th class="pb-3 pt-4 font-normal">Date</th>
+<th class="pb-3 pt-4 font-normal">Type</th>
+<th class="pb-3 pt-4 font-normal text-right">Amount</th>
+<th class="pb-3 pt-4 font-normal text-right">Status</th>
+</tr>
+</thead>
+<tbody class="font-mono-data text-mono-data">
+<tr class="ledger-border hover:bg-surface-bright/30 transition-colors">
+<td class="py-4 text-on-surface">2023-10-25</td>
+<td class="py-4 text-on-surface-variant">Weekly Yield</td>
+<td class="py-4 text-right text-primary">+450.00 XMS</td>
+<td class="py-4 text-right text-[#3FA796]">Completed</td>
+</tr>
+<tr class="ledger-border hover:bg-surface-bright/30 transition-colors">
+<td class="py-4 text-on-surface">2023-10-18</td>
+<td class="py-4 text-on-surface-variant">Quest Bonus</td>
+<td class="py-4 text-right text-primary">+125.50 XMS</td>
+<td class="py-4 text-right text-[#3FA796]">Completed</td>
+</tr>
+<tr class="hover:bg-surface-bright/30 transition-colors">
+<td class="py-4 text-on-surface">2023-10-11</td>
+<td class="py-4 text-on-surface-variant">Weekly Yield</td>
+<td class="py-4 text-right text-primary">+380.00 XMS</td>
+<td class="py-4 text-right text-[#3FA796]">Completed</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-2 bg-background text-primary font-mono-label bg-surface-container-low border-t ghost-border z-50">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:brightness-110" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="dynamic_feed">dynamic_feed</span>
+<span>Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:brightness-110" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="trending_up">trending_up</span>
+<span>Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1 scale-90 transition-all font-bold" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="account_balance_wallet">account_balance_wallet</span>
+<span>Earn</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:brightness-110" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span>User</span>
+</a>
+</nav>
+</body></html>

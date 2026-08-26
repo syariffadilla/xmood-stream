@@ -1,0 +1,36 @@
+{
+  "name": "xmood-stream",
+  "version": "1.0.0",
+  "description": "X-Mood Stream - SocialFi Tipping & Reward Token DApp on Base Sepolia",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
+    "deploy:base-sepolia": "hardhat run scripts/deploy.js --network baseSepolia",
+    "seed:base-sepolia": "hardhat run scripts/seed.js --network baseSepolia",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm --prefix frontend start"
+  },
+  "keywords": [
+    "web3",
+    "socialfi",
+    "base-sepolia",
+    "solidity",
+    "hardhat",
+    "nextjs",
+    "wagmi",
+    "rainbowkit"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2"
+  }
+}

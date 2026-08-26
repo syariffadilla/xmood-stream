@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>X-Mood Stream - SocialFi Ledger</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Inter:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#2a1800",
+                        "on-surface": "#e0e2ec",
+                        "surface": "#10131a",
+                        "outline-variant": "#514536",
+                        "surface-container-high": "#272a31",
+                        "on-primary-fixed-variant": "#643f00",
+                        "inverse-primary": "#835400",
+                        "on-secondary-fixed-variant": "#005046",
+                        "tertiary": "#c6ccdf",
+                        "primary": "#ffc16c",
+                        "on-surface-variant": "#d6c4b0",
+                        "secondary-fixed-dim": "#74d8c5",
+                        "surface-dim": "#10131a",
+                        "tertiary-container": "#aab1c3",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#90f4e1",
+                        "on-secondary-container": "#f4fffb",
+                        "on-secondary": "#003730",
+                        "on-tertiary-fixed-variant": "#404756",
+                        "secondary-container": "#008374",
+                        "background": "#10131a",
+                        "primary-fixed": "#ffddb5",
+                        "on-primary-container": "#5f3c00",
+                        "outline": "#9e8e7c",
+                        "surface-container": "#1d2027",
+                        "error": "#ffb4ab",
+                        "on-background": "#e0e2ec",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-lowest": "#0b0e15",
+                        "on-primary": "#462b00",
+                        "inverse-on-surface": "#2d3038",
+                        "primary-container": "#e8a33d",
+                        "surface-container-low": "#191c23",
+                        "on-tertiary-fixed": "#151c29",
+                        "tertiary-fixed": "#dce2f5",
+                        "on-tertiary-container": "#3d4453",
+                        "surface-tint": "#ffb956",
+                        "on-secondary-fixed": "#00201b",
+                        "on-tertiary": "#29313f",
+                        "tertiary-fixed-dim": "#c0c6d9",
+                        "inverse-surface": "#e0e2ec",
+                        "secondary": "#74d8c5",
+                        "surface-bright": "#363941",
+                        "surface-container-highest": "#32353c",
+                        "primary-fixed-dim": "#ffb956",
+                        "error-container": "#93000a",
+                        "surface-variant": "#32353c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "24px",
+                        "xs": "8px",
+                        "xl": "64px",
+                        "gutter": "20px",
+                        "base": "4px",
+                        "sm": "12px",
+                        "lg": "40px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Space Grotesk"],
+                        "mono-label": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Space Grotesk"],
+                        "display-lg": ["Space Grotesk"],
+                        "mono-data": ["JetBrains Mono"],
+                        "headline-md-mobile": ["Space Grotesk"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "mono-data": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-md-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .dashed-separator {
+            border-bottom: 1px dashed rgba(139, 146, 163, 0.3);
+        }
+        .ghost-border {
+            border: 1px solid rgba(139, 146, 163, 0.2);
+        }
+        .btn-hover {
+            transition: all 0.2s ease;
+        }
+        .btn-hover:hover {
+            filter: brightness(1.05);
+            transform: translateY(-2px);
+        }
+        .btn-hover:active {
+            transform: scale(0.98);
+        }
+        .card-hover {
+            transition: all 0.2s ease;
+        }
+        .card-hover:hover {
+            filter: brightness(1.05);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-background dark:bg-background text-primary dark:text-primary font-headline-sm text-headline-sm docked full-width top-0 no border, slight height difference flat no shadows flex justify-between items-center w-full px-gutter max-w-7xl mx-auto h-16 sticky z-50">
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface dark:text-on-surface">
+            X-Mood Stream
+        </div>
+<div class="hidden md:flex gap-md items-center">
+<a class="text-primary dark:text-primary font-bold border-b-2 border-primary pb-1" href="#">Feed</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-body-md text-body-md hover:brightness-105 transition-all" href="#">Leaderboard</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-body-md text-body-md hover:brightness-105 transition-all" href="#">Rewards</a>
+</div>
+<button class="bg-primary-container text-background font-headline-sm text-[16px] px-sm py-xs rounded hover:brightness-105 transition-all active:scale-95 duration-150 flex items-center gap-xs">
+            Connect Wallet
+        </button>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center justify-start pt-xl px-4 md:px-gutter max-w-7xl mx-auto w-full gap-xl pb-xl">
+<!-- Hero Section -->
+<section class="w-full flex flex-col items-center text-center gap-md pt-lg">
+<div class="inline-flex items-center gap-xs bg-surface-container-low px-sm py-xs rounded-full ghost-border mb-xs">
+<span class="w-2 h-2 rounded-full bg-secondary-fixed-dim"></span>
+<span class="font-mono-label text-mono-label text-on-surface-variant">SYSTEM: ONLINE</span>
+</div>
+<h1 class="font-display-lg text-display-lg text-on-surface max-w-4xl">
+                Post, Get Tips in USDT, Collect $XMS Rewards
+            </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mt-sm">
+                The decentralized SocialFi ledger where your content drives direct financial interaction. Technical transparency meets social engagement.
+            </p>
+<div class="flex gap-md mt-md">
+<button class="bg-primary-container text-background font-headline-sm text-[18px] px-md py-sm rounded btn-hover">
+                    Start Posting
+                </button>
+<button class="bg-transparent border border-[rgba(139,146,163,0.3)] text-on-surface font-headline-sm text-[18px] px-md py-sm rounded btn-hover">
+                    Explore Ledger
+                </button>
+</div>
+<div class="mt-lg font-mono-label text-mono-label text-on-surface-variant flex gap-md opacity-60">
+<span>NETWORK: BASE SEPOLIA</span>
+<span>|</span>
+<span>STATUS: SECURE</span>
+</div>
+</section>
+<!-- Mini Preview & How it Works Grid -->
+<section class="w-full grid grid-cols-1 lg:grid-cols-12 gap-md mt-xl">
+<!-- Feed Preview (Bento Left) -->
+<div class="lg:col-span-7 bg-surface rounded-lg p-md ghost-border flex flex-col gap-md">
+<div class="flex justify-between items-center dashed-separator pb-sm mb-sm">
+<h2 class="font-headline-sm text-[20px] text-on-surface flex items-center gap-xs">
+<span class="material-symbols-outlined" data-icon="dynamic_feed">dynamic_feed</span>
+                        Live Ledger Feed
+                    </h2>
+<span class="font-mono-label text-mono-label text-primary">SYNCING...</span>
+</div>
+<!-- Sample Post Card -->
+<div class="bg-surface-container-low rounded-lg p-sm ghost-border card-hover">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded bg-surface-container-high ghost-border flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="person">person</span>
+</div>
+<div>
+<div class="font-headline-sm text-[16px] text-on-surface">0x71C...3E2B</div>
+<div class="font-mono-data text-[12px] text-on-surface-variant">BLOCK: #1928471</div>
+</div>
+</div>
+<div class="bg-surface-container-high px-xs py-base rounded font-mono-label text-mono-label text-secondary-fixed-dim">
+                            +5.00 USDT
+                        </div>
+</div>
+<p class="font-body-md text-body-md text-on-surface mb-sm">
+                        Just deployed my first smart contract optimization. Gas fees reduced by 15%.
+                    </p>
+<div class="flex gap-sm dashed-separator pt-sm">
+<button class="flex items-center gap-xs text-on-surface-variant hover:text-primary transition-colors font-mono-label text-mono-label">
+<span class="material-symbols-outlined text-[16px]" data-icon="payments">payments</span> TIP USDT
+                        </button>
+</div>
+</div>
+<!-- Sample Post Card -->
+<div class="bg-surface-container-low rounded-lg p-sm ghost-border card-hover opacity-80">
+<div class="flex justify-between items-start mb-sm">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded bg-surface-container-high ghost-border flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="person">person</span>
+</div>
+<div>
+<div class="font-headline-sm text-[16px] text-on-surface">0xA34...9F12</div>
+<div class="font-mono-data text-[12px] text-on-surface-variant">BLOCK: #1928468</div>
+</div>
+</div>
+<div class="bg-surface-container-high px-xs py-base rounded font-mono-label text-mono-label text-secondary-fixed-dim">
+                            +2.50 USDT
+                        </div>
+</div>
+<p class="font-body-md text-body-md text-on-surface mb-sm">
+                        Analyzing the latest market trends for layer 2 solutions.
+                    </p>
+</div>
+</div>
+<!-- How it Works (Bento Right) -->
+<div class="lg:col-span-5 bg-surface rounded-lg p-md ghost-border flex flex-col gap-sm">
+<div class="dashed-separator pb-sm mb-sm">
+<h2 class="font-headline-sm text-[20px] text-on-surface flex items-center gap-xs">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                        Protocol Mechanics
+                    </h2>
+</div>
+<div class="flex gap-sm items-start p-sm bg-surface-container-low rounded ghost-border">
+<div class="text-primary font-headline-md text-headline-md">01</div>
+<div>
+<h3 class="font-headline-sm text-[18px] text-on-surface mb-base">Post</h3>
+<p class="font-body-md text-[14px] text-on-surface-variant">Publish insights to the ledger. Content is securely indexed.</p>
+</div>
+</div>
+<div class="flex gap-sm items-start p-sm bg-surface-container-low rounded ghost-border">
+<div class="text-primary font-headline-md text-headline-md">02</div>
+<div>
+<h3 class="font-headline-sm text-[18px] text-on-surface mb-base">Tip</h3>
+<p class="font-body-md text-[14px] text-on-surface-variant">Users tip your content directly in USDT via smart contracts.</p>
+</div>
+</div>
+<div class="flex gap-sm items-start p-sm bg-surface-container-low rounded ghost-border border-l-2 border-l-secondary-fixed-dim">
+<div class="text-secondary-fixed-dim font-headline-md text-headline-md">03</div>
+<div>
+<h3 class="font-headline-sm text-[18px] text-on-surface mb-base">Earn $XMS</h3>
+<p class="font-body-md text-[14px] text-on-surface-variant">Receive native $XMS rewards proportional to engagement volume.</p>
+</div>
+</div>
+</div>
+</section>
+</main>
+</body></html>

@@ -1,0 +1,21 @@
+{
+  "network": "baseSepolia",
+  "chainId": 84532,
+  "deployedAt": "2026-08-26T08:44:19.190Z",
+  "deployer": "0x34758C708AcA45385162348438899580f78DC150",
+  "treasury": "0x34758C708AcA45385162348438899580f78DC150",
+  "contracts": {
+    "MockUSDT": "0x8Fa6d0E71962A00E093f913D7A59d38e72aaE869",
+    "RewardToken": "0xedE78e63e0d50FF92e936a6699E0303208a0892F",
+    "XMoodStreamCore": "0xe417f89D94CE38364Da1757BE68910765AdEdEC2",
+    "TipVault": "0x5a72dC0f66e85aD54dCc4Ca7377b0Da5F788923E",
+    "RewardDistributor": "0xd8b005D006994cDEDFABf0DF170D0d2C58F27335"
+  },
+  "explorerUrls": {
+    "MockUSDT": "https://sepolia.basescan.org/address/0x8Fa6d0E71962A00E093f913D7A59d38e72aaE869",
+    "RewardToken": "https://sepolia.basescan.org/address/0xedE78e63e0d50FF92e936a6699E0303208a0892F",
+    "XMoodStreamCore": "https://sepolia.basescan.org/address/0xe417f89D94CE38364Da1757BE68910765AdEdEC2",
+    "TipVault": "https://sepolia.basescan.org/address/0x5a72dC0f66e85aD54dCc4Ca7377b0Da5F788923E",
+    "RewardDistributor": "https://sepolia.basescan.org/address/0xd8b005D006994cDEDFABf0DF170D0d2C58F27335"
+  }
+}

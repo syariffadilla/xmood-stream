@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>X-Mood Stream - Leaderboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed": "#2a1800",
+                        "on-surface": "#e0e2ec",
+                        "surface": "#10131a",
+                        "outline-variant": "#514536",
+                        "surface-container-high": "#272a31",
+                        "on-primary-fixed-variant": "#643f00",
+                        "inverse-primary": "#835400",
+                        "on-secondary-fixed-variant": "#005046",
+                        "tertiary": "#c6ccdf",
+                        "primary": "#ffc16c",
+                        "on-surface-variant": "#d6c4b0",
+                        "secondary-fixed-dim": "#74d8c5",
+                        "surface-dim": "#10131a",
+                        "tertiary-container": "#aab1c3",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#90f4e1",
+                        "on-secondary-container": "#f4fffb",
+                        "on-secondary": "#003730",
+                        "on-tertiary-fixed-variant": "#404756",
+                        "secondary-container": "#008374",
+                        "background": "#10131a",
+                        "primary-fixed": "#ffddb5",
+                        "on-primary-container": "#5f3c00",
+                        "outline": "#9e8e7c",
+                        "surface-container": "#1d2027",
+                        "error": "#ffb4ab",
+                        "on-background": "#e0e2ec",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-lowest": "#0b0e15",
+                        "on-primary": "#462b00",
+                        "inverse-on-surface": "#2d3038",
+                        "primary-container": "#e8a33d",
+                        "surface-container-low": "#191c23",
+                        "on-tertiary-fixed": "#151c29",
+                        "tertiary-fixed": "#dce2f5",
+                        "on-tertiary-container": "#3d4453",
+                        "surface-tint": "#ffb956",
+                        "on-secondary-fixed": "#00201b",
+                        "on-tertiary": "#29313f",
+                        "tertiary-fixed-dim": "#c0c6d9",
+                        "inverse-surface": "#e0e2ec",
+                        "secondary": "#74d8c5",
+                        "surface-bright": "#363941",
+                        "surface-container-highest": "#32353c",
+                        "primary-fixed-dim": "#ffb956",
+                        "error-container": "#93000a",
+                        "surface-variant": "#32353c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "24px",
+                        "xs": "8px",
+                        "xl": "64px",
+                        "gutter": "20px",
+                        "base": "4px",
+                        "sm": "12px",
+                        "lg": "40px"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Space Grotesk"],
+                        "mono-label": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Space Grotesk"],
+                        "display-lg": ["Space Grotesk"],
+                        "mono-data": ["JetBrains Mono"],
+                        "headline-md-mobile": ["Space Grotesk"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "mono-data": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "headline-md-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #12151C; color: #e0e2ec; }
+        .card { background-color: #1B1F29; border-radius: 10px; }
+        .dashed-sep { border-bottom: 1px dashed rgba(139, 146, 163, 0.3); }
+        .gold-badge { background-color: #E8A33D; color: #12151C; }
+        .silver-badge { background-color: #c6ccdf; color: #12151C; }
+        .bronze-badge { background-color: #aab1c3; color: #12151C; }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex flex-col md:flex-row">
+<!-- TopNavBar (Mobile) -->
+<nav class="md:hidden bg-background text-primary flex justify-between items-center w-full px-gutter max-w-7xl mx-auto h-16 docked full-width top-0 no border, slight height difference flat no shadows">
+<div class="font-headline-sm text-headline-sm font-bold text-on-surface">X-Mood Stream</div>
+<button class="bg-primary-container text-on-primary-fixed font-headline-sm text-[14px] px-4 py-2 rounded">Connect Wallet</button>
+</nav>
+<!-- SideNavBar (Desktop) -->
+<nav class="hidden lg:flex flex-col p-md gap-sm bg-surface text-primary font-body-md text-body-md fixed left-0 top-0 h-full w-64 bg-surface-container flat no shadows">
+<div class="mb-xl">
+<h1 class="font-headline-sm text-headline-sm text-primary">X-Mood Stream</h1>
+<p class="text-on-surface-variant text-sm mt-1">SocialFi Ledger</p>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<a class="flex items-center gap-3 p-3 rounded-lg text-on-surface-variant hover:bg-surface-bright transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+<span>Home</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-primary font-bold bg-surface-container-high rounded-lg hover:bg-surface-bright transition-transform scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span>Leaderboard</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded-lg text-on-surface-variant hover:bg-surface-bright transition-colors" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span>Rewards</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded-lg text-on-surface-variant hover:bg-surface-bright transition-colors" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span>Profile</span>
+</a>
+</div>
+<button class="w-full bg-primary-container text-on-primary-fixed font-headline-sm text-[16px] py-3 rounded mt-auto hover:brightness-105 transition-all">Create Post</button>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow w-full md:pl-64 p-4 md:p-md max-w-7xl mx-auto mb-20 md:mb-0">
+<header class="mb-md pt-4 md:pt-0">
+<h2 class="font-display-lg text-display-lg md:text-display-lg text-on-surface mb-2">Leaderboard</h2>
+<p class="font-mono-data text-mono-data text-on-surface-variant">Global ranking based on transaction volume.</p>
+</header>
+<!-- Tabs -->
+<div class="flex gap-4 mb-md border-b border-surface-variant pb-2">
+<button class="font-headline-sm text-[16px] text-primary border-b-2 border-primary pb-1">Top Creator</button>
+<button class="font-headline-sm text-[16px] text-on-surface-variant hover:text-on-surface transition-colors">Top Tipper</button>
+</div>
+<!-- Leaderboard List -->
+<div class="card p-md flex flex-col gap-4">
+<!-- Header Row -->
+<div class="flex justify-between items-center dashed-sep pb-2 px-2 text-on-surface-variant font-mono-label text-mono-label uppercase tracking-wider">
+<div class="w-12 text-center">Rank</div>
+<div class="flex-grow ml-4">User</div>
+<div class="text-right">Volume (USDT)</div>
+</div>
+<!-- Rank 1 -->
+<div class="flex justify-between items-center p-3 rounded hover:bg-surface-bright transition-colors group">
+<div class="w-12 flex justify-center">
+<span class="gold-badge font-mono-data text-mono-data px-2 py-1 rounded">#1</span>
+</div>
+<div class="flex-grow ml-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait avatar of a futuristic cyberpunk character in a minimalist dark-mode setting. The character has subtle neon accents but overall adheres to a high-end, serious financial tone with deep blacks and stark whites. Lighting is dramatic and cinematic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSjE83LodZ_XZ3gYQaYVTHz8sSyYiD3sz2hj26jv92poLBJsMS0N6bdt4Bg-qoeelQ_39gyzb0Rseqx29yWV4myA69DeXKBr0otNPrj4B-TvXgTS6DO9wJf_jqrRc9SJUC9cyLxTfwsTA-tjJYVQuFair5LXjGQG0_KfKG9n7q2qS14lOFdNQTag2r2oSi__SBrTu0np8cEH2b-bQa_366qko5bOox7BHEo1uOKd8pQFsKZ_FiRqr8IA"/>
+</div>
+<div>
+<div class="font-body-md text-body-md text-on-surface">Alex Mercer</div>
+<div class="font-mono-label text-mono-label text-on-surface-variant">0x7F...3B92</div>
+</div>
+</div>
+<div class="text-right font-mono-data text-mono-data text-primary">
+                    12,450.00
+                </div>
+</div>
+<!-- Rank 2 -->
+<div class="flex justify-between items-center p-3 rounded hover:bg-surface-bright transition-colors group">
+<div class="w-12 flex justify-center">
+<span class="silver-badge font-mono-data text-mono-data px-2 py-1 rounded">#2</span>
+</div>
+<div class="flex-grow ml-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait avatar of a sophisticated professional in a minimalist dark-mode setting. The character wears sleek, modern clothing fitting for a high-end fintech environment. Lighting is crisp and cool, casting precise shadows on a deep dark background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD91MqDVx4dk703q4233RP-AyIYcy89IiXD-9wlPJorVeDLtMj1SGc5oU6uxUQ9w_tHbjLH4EmKPbAxQAryJMFDMSRpjbGtcUQxwOCqC0jM9uP5Z3CHxoYPFjo9zpT2jnTva3B1XGkTMaYzkKQu9h-fcwjUKWwgdeW_KHtZvUClR6AKE8Fkha7iHJ0DX-fXL8l2-_laDIiBFt2y8_ahUPfUr11hYiD6otoPWRLjd8pJ064cL6JcdnTO5A"/>
+</div>
+<div>
+<div class="font-body-md text-body-md text-on-surface">Sarah Chen</div>
+<div class="font-mono-label text-mono-label text-on-surface-variant">0x2A...9C14</div>
+</div>
+</div>
+<div class="text-right font-mono-data text-mono-data text-on-surface">
+                    9,820.50
+                </div>
+</div>
+<!-- Rank 3 -->
+<div class="flex justify-between items-center p-3 rounded hover:bg-surface-bright transition-colors group">
+<div class="w-12 flex justify-center">
+<span class="bronze-badge font-mono-data text-mono-data px-2 py-1 rounded">#3</span>
+</div>
+<div class="flex-grow ml-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A highly detailed close-up portrait avatar of an enigmatic digital artist in a minimalist dark-mode setting. The aesthetic is clean and technical, emphasizing financial trust with a subtle creative edge. Shadows are deep and textures are crisp against a dark grey void." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAU8B52hy5hlCwVv6WLXZz7UWvMntFQ2wcRseFgl39ScICAkWlGg9-IFE06kWyO2spksq9LYt1113E_oIeic_JgEALrMyiLmcRUWOTqGiIDBvGZdKPN8VSDod6r9RxCHj9GipTQOfTNBPKG9fyizdw8v4AfK8GIJY_jMowuYspKOaLiYBV3jv_4piFKry3CNge-dtrBm_b9X7y8ny9pSuCRKlxoajbBsxmKfJC7ibIDdh3tlIppRXhy2g"/>
+</div>
+<div>
+<div class="font-body-md text-body-md text-on-surface">Marcus Vance</div>
+<div class="font-mono-label text-mono-label text-on-surface-variant">0x9D...4E71</div>
+</div>
+</div>
+<div class="text-right font-mono-data text-mono-data text-on-surface">
+                    7,105.75
+                </div>
+</div>
+<div class="dashed-sep my-2"></div>
+<!-- Rank 4 -->
+<div class="flex justify-between items-center p-3 rounded hover:bg-surface-bright transition-colors group">
+<div class="w-12 flex justify-center font-mono-data text-mono-data text-on-surface-variant">
+                    #4
+                </div>
+<div class="flex-grow ml-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden flex items-center justify-center text-on-surface-variant font-headline-sm">
+                        E
+                    </div>
+<div>
+<div class="font-body-md text-body-md text-on-surface">Elena Rostova</div>
+<div class="font-mono-label text-mono-label text-on-surface-variant">0x1B...8F22</div>
+</div>
+</div>
+<div class="text-right font-mono-data text-mono-data text-on-surface-variant">
+                    5,430.00
+                </div>
+</div>
+<!-- Rank 5 -->
+<div class="flex justify-between items-center p-3 rounded hover:bg-surface-bright transition-colors group">
+<div class="w-12 flex justify-center font-mono-data text-mono-data text-on-surface-variant">
+                    #5
+                </div>
+<div class="flex-grow ml-4 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container overflow-hidden flex items-center justify-center text-on-surface-variant font-headline-sm">
+                        J
+                    </div>
+<div>
+<div class="font-body-md text-body-md text-on-surface">James Wu</div>
+<div class="font-mono-label text-mono-label text-on-surface-variant">0x5C...3A99</div>
+</div>
+</div>
+<div class="text-right font-mono-data text-mono-data text-on-surface-variant">
+                    4,920.25
+                </div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-2 bg-background text-primary font-mono-label text-mono-label bg-surface-container-low flat no shadows z-50">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:brightness-110" href="#">
+<span class="material-symbols-outlined">dynamic_feed</span>
+<span class="mt-1">Feed</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1 scale-90 transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<span class="mt-1 font-bold">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:brightness-110" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="mt-1">Earn</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:brightness-110" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="mt-1">User</span>
+</a>
+</nav>
+</body></html>
