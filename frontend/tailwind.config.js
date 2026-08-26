@@ -9,20 +9,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: '#12151C',
-        surface: '#1B1F29',
-        'surface-low': '#10131A',
-        'surface-card': '#1B1F29',
-        'surface-high': '#272A31',
-        'surface-highest': '#32353C',
-        'text-primary': '#ECEDEF',
-        'text-secondary': '#8B92A3',
-        'text-muted': '#656C7D',
-        'accent-amber': '#E8A33D', // USDT & Tip Value
-        'accent-teal': '#3FA796',  // $XMS Reward Token
-        'brand-teal': '#3ED6C4',
-        'brand-blue': '#1E56E0',
-        'border-subtle': '#282D3B',
+        background: '#090C15',
+        surface: '#0E131F',
+        'surface-low': '#070910',
+        'surface-card': '#111726',
+        'surface-high': '#182032',
+        'surface-highest': '#202A40',
+        'text-primary': '#F3F4F6',
+        'text-secondary': '#94A3B8',
+        'text-muted': '#64748B',
+        'accent-amber': '#F59E0B',
+        'accent-teal': '#00F5A0',
+        'brand-teal': '#00F5A0',
+        'brand-cyan': '#00D9F5',
+        'brand-purple': '#6366F1',
+        'border-subtle': '#1E293B',
       },
       fontFamily: {
         grotesk: ['Space Grotesk', 'sans-serif'],
@@ -30,8 +31,9 @@ module.exports = {
         sans: ['Inter', 'sans-serif'],
       },
       backgroundImage: {
-        'brand-gradient': 'linear-gradient(135deg, #3ED6C4 0%, #1E56E0 100%)',
-        'brand-gradient-hover': 'linear-gradient(135deg, #4ef0de 0%, #2b65f5 100%)',
+        'brand-gradient': 'linear-gradient(135deg, #00F5A0 0%, #00D9F5 50%, #6366F1 100%)',
+        'brand-gradient-hover': 'linear-gradient(135deg, #1affb2 0%, #21e0fa 50%, #7d80f5 100%)',
+        'botchain-glow': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 245, 160, 0.15), rgba(99, 102, 241, 0.05), transparent)',
       },
     },
   },

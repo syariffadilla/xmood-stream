@@ -5,17 +5,17 @@
 @tailwind utilities;
 
 :root {
-  --background: #12151C;
-  --surface: #1B1F29;
-  --text-primary: #ECEDEF;
-  --text-secondary: #8B92A3;
-  --accent-amber: #E8A33D;
-  --accent-teal: #3FA796;
+  --background: #090C15;
+  --surface: #0E131F;
+  --text-primary: #F3F4F6;
+  --text-secondary: #94A3B8;
+  --accent-amber: #F59E0B;
+  --accent-teal: #00F5A0;
 }
 
 body {
-  background-color: #12151C;
-  color: #ECEDEF;
+  background-color: #090C15;
+  color: #F3F4F6;
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
 }
@@ -27,31 +27,46 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #12151C;
+  background: #090C15;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #282D3B;
+  background: #1E293B;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3ED6C4;
+  background: #00F5A0;
 }
 
 /* Subtle receipt dotted divider */
 .ledger-border-b {
-  border-bottom: 1px dashed #282D3B;
+  border-bottom: 1px dashed #1E293B;
 }
 
 .ledger-border-t {
-  border-top: 1px dashed #282D3B;
+  border-top: 1px dashed #1E293B;
 }
 
 .glow-teal {
-  box-shadow: 0 0 20px -5px rgba(62, 214, 196, 0.3);
+  box-shadow: 0 0 25px -5px rgba(0, 245, 160, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 25px -5px rgba(0, 217, 245, 0.35);
 }
 
 .glow-amber {
-  box-shadow: 0 0 20px -5px rgba(232, 163, 61, 0.3);
+  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.35);
+}
+
+.botchain-card-glow {
+  background: linear-gradient(180deg, rgba(14, 19, 31, 0.95) 0%, rgba(9, 12, 21, 0.98) 100%);
+  border: 1px solid rgba(30, 41, 59, 0.8);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.botchain-card-glow:hover {
+  border-color: rgba(0, 245, 160, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(0, 245, 160, 0.1);
 }

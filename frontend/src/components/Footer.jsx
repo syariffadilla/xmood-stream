@@ -5,34 +5,34 @@ import { ExternalLink, ShieldCheck, Zap } from 'lucide-react';
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-[#282D3B] bg-[#10131A] text-[#8B92A3] py-8 text-xs font-mono">
+    <footer className="w-full border-t border-[#1E293B] bg-[#070910] text-[#94A3B8] py-8 text-xs font-mono">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           
           <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-[#ECEDEF] font-grotesk font-bold text-sm">
-              <span className="w-2 h-2 rounded-full bg-[#3ED6C4]"></span>
+            <div className="flex items-center space-x-2 text-[#F3F4F6] font-grotesk font-bold text-sm">
+              <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-[#00F5A0] to-[#00D9F5]"></span>
               <span>X-MOOD STREAM</span>
             </div>
-            <p className="text-[#8B92A3] text-xs font-sans">
-              SocialFi Tipping & Rewards protocol on Base Sepolia. Verifiable ledger of micro-posts and tips.
+            <p className="text-[#94A3B8] text-xs font-sans leading-relaxed">
+              SocialFi Tipping & Rewards protocol on BOT Chain. Verifiable ledger of micro-posts and 95% creator tips.
             </p>
           </div>
 
           <div>
-            <h4 className="text-[#ECEDEF] font-grotesk font-semibold text-xs uppercase mb-2">
+            <h4 className="text-[#F3F4F6] font-grotesk font-semibold text-xs uppercase mb-2 text-[#00F5A0]">
               Network Specs
             </h4>
             <ul className="space-y-1">
-              <li>Chain: <span className="text-[#ECEDEF]">{CONTRACT_ADDRESSES.chainName} ({CONTRACT_ADDRESSES.chainId})</span></li>
-              <li>Currency: <span className="text-[#ECEDEF]">BOT / ETH</span></li>
-              <li>Tip Token: <span className="text-[#E8A33D]">mUSDT (6 Decimals)</span></li>
-              <li>Reward: <span className="text-[#3FA796]">$XMS (18 Decimals)</span></li>
+              <li>Chain: <span className="text-[#F3F4F6] font-semibold">{CONTRACT_ADDRESSES.chainName} ({CONTRACT_ADDRESSES.chainId})</span></li>
+              <li>Currency: <span className="text-[#F3F4F6]">BOT</span></li>
+              <li>Tip Token: <span className="text-[#F59E0B]">mUSDT (6 Decimals)</span></li>
+              <li>Reward: <span className="text-[#00F5A0]">$XMS (18 Decimals)</span></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-[#ECEDEF] font-grotesk font-semibold text-xs uppercase mb-2">
+            <h4 className="text-[#F3F4F6] font-grotesk font-semibold text-xs uppercase mb-2 text-[#00F5A0]">
               Smart Contracts
             </h4>
             <ul className="space-y-1">
@@ -41,7 +41,7 @@ export default function Footer() {
                   href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.XMoodStreamCore}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>Core Contract</span>
                   <ExternalLink className="w-3 h-3" />
@@ -52,7 +52,7 @@ export default function Footer() {
                   href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.TipVault}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>TipVault (95/5)</span>
                   <ExternalLink className="w-3 h-3" />
@@ -63,7 +63,7 @@ export default function Footer() {
                   href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.RewardDistributor}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>Reward Distributor</span>
                   <ExternalLink className="w-3 h-3" />
@@ -73,7 +73,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-[#ECEDEF] font-grotesk font-semibold text-xs uppercase mb-2 text-[#3ED6C4]">
+            <h4 className="text-[#F3F4F6] font-grotesk font-semibold text-xs uppercase mb-2 text-[#00F5A0]">
               BOT Chain Hub
             </h4>
             <ul className="space-y-1">
@@ -82,7 +82,7 @@ export default function Footer() {
                   href="https://www.botchain.ai"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>Official Website</span>
                   <ExternalLink className="w-3 h-3" />
@@ -93,7 +93,7 @@ export default function Footer() {
                   href="https://faucet.botchain.ai"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>Testnet Faucet</span>
                   <ExternalLink className="w-3 h-3" />
@@ -104,7 +104,7 @@ export default function Footer() {
                   href="https://dex.botchain.ai/#/swap"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>BDEX Swap</span>
                   <ExternalLink className="w-3 h-3" />
@@ -115,7 +115,7 @@ export default function Footer() {
                   href="https://bridge.botchain.ai"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>Cross-Chain Bridge</span>
                   <ExternalLink className="w-3 h-3" />
@@ -126,7 +126,7 @@ export default function Footer() {
                   href="https://dev-docs.botchain.ai/docs/Developers/quick-guide/"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>Developer Docs</span>
                   <ExternalLink className="w-3 h-3" />
@@ -137,7 +137,7 @@ export default function Footer() {
                   href="https://github.com/BOTChain-bot"
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-[#3ED6C4] flex items-center space-x-1"
+                  className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
                   <span>Official GitHub</span>
                   <ExternalLink className="w-3 h-3" />
@@ -148,10 +148,10 @@ export default function Footer() {
 
         </div>
 
-        <div className="pt-4 border-t border-[#282D3B] flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#656C7D]">
-          <div>© 2026 X-Mood Stream. EVM Compatible (BOT Chain & Base).</div>
+        <div className="pt-4 border-t border-[#1E293B] flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#64748B]">
+          <div>© 2026 X-Mood Stream. Built for BOT Chain & EVM Ecosystems.</div>
           <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-            <span>Status: <strong className="text-[#3ED6C4]">Live on Testnet</strong></span>
+            <span>Status: <strong className="text-[#00F5A0]">Live on BOT Chain Testnet</strong></span>
           </div>
         </div>
       </div>
