@@ -6,7 +6,7 @@ import { CONTRACT_ADDRESSES } from '../contracts/addresses';
 import { MOCK_USDT_ABI } from '../contracts/abis';
 import { parseUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { X, Coins, CheckCircle, Loader2, ShieldAlert, Clock, Globe, Zap } from 'lucide-react';
+import { X, Coins, CheckCircle, Loader2, ShieldAlert, Clock, Globe, Zap, Sparkles } from 'lucide-react';
 
 export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
   const [isMinting, setIsMinting] = useState(false);
