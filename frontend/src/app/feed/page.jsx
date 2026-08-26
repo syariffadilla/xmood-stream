@@ -369,30 +369,13 @@ export default function FeedPage() {
                         >
                           <Heart className="w-3.5 h-3.5" />
                           <span>{isOwnPost ? 'Your Broadcast' : 'Send Tip'}</span>
-            {/* Micro-Stream Feed List */}
-            <div className="space-y-4">
-              {loading ? (
-                <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-12 text-center text-[#8B92A3] font-mono text-sm space-y-3">
-                  <div className="w-6 h-6 border-2 border-[#3ED6C4] border-t-transparent rounded-full animate-spin mx-auto"></div>
-                  <p>Loading verifiable micro-streams from smart contract...</p>
-                </div>
-              ) : posts.length === 0 ? (
-                <div className="bg-[#1B1F29] border border-[#282D3B] rounded-xl p-12 text-center text-[#8B92A3]">
-                  <MessageSquare className="w-8 h-8 mx-auto text-[#8B92A3] mb-2 opacity-50" />
-                  <p className="font-grotesk font-semibold text-sm text-[#ECEDEF]">No streams recorded yet</p>
-                  <p className="text-xs font-mono text-[#8B92A3] mt-1">Be the first to broadcast on {CONTRACT_ADDRESSES.chainName}!</p>
-                </div>
-              ) : (
-                posts.map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onTipClick={handleTipClick}
-                    onRefresh={fetchPostsFromChain}
-                  />
-                ))
-              )}
-            </div>
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
 
           </div>
 
