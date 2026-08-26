@@ -1,0 +1,3 @@
+# robots.txt for X-Mood Stream
+User-agent: *
+Allow: /

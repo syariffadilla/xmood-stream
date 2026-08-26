@@ -32,10 +32,13 @@ git push -u origin main
 
 ## ⚡ 2. Deploy ke Vercel
 
+### Jika Membuat Project Baru (Import Repository):
 1. Buka **[vercel.com](https://vercel.com)** $\rightarrow$ klik **Add New Project** $\rightarrow$ pilih repo **`xmood-stream`**.
-2. Di bagian **Root Directory**, pilih folder:
+2. Di bagian **Framework Preset**, pastikan terpilih:
+   👉 **`Next.js`**
+3. Di bagian **Root Directory**, klik **Edit** dan pilih folder:
    👉 **`frontend`**
-3. Di bagian **Environment Variables**, tambahkan:
+4. Di bagian **Environment Variables**, tambahkan:
 
 | Name | Value |
 |---|---|
@@ -43,4 +46,15 @@ git push -u origin main
 | `BASE_SEPOLIA_RPC_URL` | `https://sepolia.base.org` |
 | `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | `https://sepolia.base.org` |
 
-4. Klik **Deploy**!
+5. Klik **Deploy**!
+
+---
+
+### Jika Project Vercel Sudah Terlanjur Dibuat (Mengatasi Error "No Output Directory named public"):
+Jika project sudah dibuat dan mengalami error tersebut:
+1. Buka project Anda di Vercel $\rightarrow$ masuk ke tab **Settings** $\rightarrow$ pilih **General**.
+2. Pada bagian **Build & Development Settings**:
+   - **Framework Preset**: Ubah / pastikan memilih **Next.js** (jangan *Other*).
+3. Pada bagian **Root Directory**:
+   - Klik **Edit** $\rightarrow$ isi/pilih: **`frontend`** $\rightarrow$ klik **Save**.
+4. Kembali ke tab **Deployments** $\rightarrow$ klik icon titik tiga `...` pada deployment terakhir $\rightarrow$ klik **Redeploy**!
