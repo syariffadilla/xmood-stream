@@ -144,9 +144,8 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
   ];
 
   return (
-    <>
-      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-[#090C15]/85 border-b border-[#1E293B] shadow-lg shadow-black/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-[#090C15]/85 border-b border-[#1E293B] shadow-lg shadow-black/20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           {/* LEFT: Brand / Logo */}
           <div className="flex items-center space-x-3">
             <Link
