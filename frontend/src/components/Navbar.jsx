@@ -92,9 +92,9 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
           icon: Globe,
         },
         {
-          name: 'Testnet Faucet',
+          name: 'BOT Faucet',
           href: 'https://faucet.botchain.ai',
-          desc: 'Claim free testnet BOT',
+          desc: 'Claim free BOT',
           icon: Droplets,
         },
         {
@@ -110,32 +110,33 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
           icon: ShieldCheck,
         },
         {
-          name: 'Official Wallet',
+          name: 'BOT Wallet',
           href: 'https://wallet.botchain.ai',
           desc: 'BOT Chain native wallet',
           icon: Wallet,
         },
-      ],
-    },
-    {
-      category: 'Developers & Explorer',
-      items: [
         {
-          name: 'Block Explorer (BotScan)',
-          href: 'https://scan.botchain.ai',
-          desc: 'Inspect transactions & contracts',
+          name: 'Ecosystem DApps',
+          href: 'https://www.botchain.ai/ecosystem',
+          desc: 'Explore AI & SocialFi applications',
           icon: Compass,
         },
         {
-          name: 'Developer Documentation',
+          name: 'BOT Scan Explorer',
+          href: 'https://scan.botchain.ai',
+          desc: 'Verify transactions & contracts',
+          icon: Search,
+        },
+        {
+          name: 'Developer Docs',
           href: 'https://dev-docs.botchain.ai/docs/Developers/quick-guide/',
-          desc: 'Integration guides & APIs',
-          icon: Code2,
+          desc: 'Build on BOT Chain L1',
+          icon: BookOpen,
         },
         {
           name: 'Official GitHub',
           href: 'https://github.com/BOTChain-bot',
-          desc: 'Open-source code & SDKs',
+          desc: 'Open-source repositories',
           icon: Github,
         },
       ],
@@ -143,19 +144,21 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[#1E293B] bg-[#090C15]/95 backdrop-blur-xl">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-2 sm:gap-4">
-          
-          {/* LEFT: Logo & Network Badge */}
-          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center shadow-lg shadow-[#00F5A0]/20 group-hover:scale-105 transition-transform duration-200">
-                <span className="font-mono font-extrabold text-[#090C15] text-sm">X</span>
+    <>
+      <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-[#090C15]/85 border-b border-[#1E293B] shadow-lg shadow-black/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          {/* LEFT: Brand / Logo */}
+          <div className="flex items-center space-x-3">
+            <Link
+              href="/"
+              className="flex items-center space-x-2.5 group transition-transform active:scale-95"
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center shadow-lg shadow-[#00F5A0]/25 group-hover:shadow-[#00F5A0]/40 transition-all">
+                <Sparkles className="w-5 h-5 text-[#090C15] animate-spin-slow" />
               </div>
-              <div className="flex items-baseline space-x-1 whitespace-nowrap">
-                <span className="font-grotesk font-bold text-sm sm:text-base text-[#F3F4F6] tracking-tight group-hover:text-[#00F5A0] transition-colors">
-                  X-Mood
+              <div className="flex flex-col">
+                <span className="font-grotesk font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-[#F3F4F6] via-[#E2E8F0] to-[#94A3B8] bg-clip-text text-transparent group-hover:from-[#00F5A0] group-hover:to-[#00D9F5] transition-all">
+                  X-MOOD
                 </span>
                 <span className="hidden sm:inline font-grotesk font-semibold text-xs sm:text-sm text-[#94A3B8]">
                   Stream
@@ -166,9 +169,9 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
             {/* Network indicator badge & 1-click switcher */}
             {isWrongChain ? (
               <button
-                onClick={() => switchChain && switchChain({ chainId: 968 })}
+                onClick={() => switchChain && switchChain({ chainId: 677 })}
                 className="flex items-center space-x-1.5 bg-[#F59E0B]/20 border border-[#F59E0B] px-2.5 py-1 rounded-full text-[11px] font-mono text-[#F59E0B] hover:bg-[#F59E0B] hover:text-[#090C15] transition-all animate-pulse shadow-md"
-                title="Click to switch wallet to BOT Chain Testnet"
+                title="Click to switch wallet to BOT Chain Mainnet"
               >
                 <AlertTriangle className="w-3 h-3 text-[#F59E0B]" />
                 <span className="font-bold">Switch to BOT Chain</span>

@@ -33,14 +33,14 @@ export const botchain = defineChain({
 export const config = getDefaultConfig({
   appName: 'X-Mood Stream',
   projectId: '3fcc6bba6f1de962d911bb5b5c3dba68',
-  chains: [botchainTestnet, botchain],
+  chains: [botchain, botchainTestnet],
   transports: {
-    [botchainTestnet.id]: http('https://rpc.bohr.life', {
+    [botchain.id]: http('https://rpc.botchain.ai', {
       batch: true,
       retryCount: 2,
       timeout: 10000,
     }),
-    [botchain.id]: http('https://rpc.botchain.ai', {
+    [botchainTestnet.id]: http('https://rpc.bohr.life', {
       batch: true,
       retryCount: 2,
       timeout: 10000,

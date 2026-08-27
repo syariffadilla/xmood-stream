@@ -70,7 +70,7 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
 
     setIsMinting(true);
     try {
-      toast.loading('Minting 100 mUSDT on BOT Chain Testnet...', { id: 'faucet-mint' });
+      toast.loading(`Minting 100 mUSDT on ${CONTRACT_ADDRESSES.chainName}...`, { id: 'faucet-mint' });
 
       await writeContractAsync({
         address: CONTRACT_ADDRESSES.MockUSDT,
@@ -135,7 +135,7 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
           <div className="flex items-center space-x-2">
             <Coins className="w-5 h-5 text-[#F59E0B]" />
             <h3 className="font-grotesk font-bold text-base text-[#F3F4F6]">
-              Testnet mUSDT Faucet
+              mUSDT Faucet
             </h3>
           </div>
           <button
@@ -154,7 +154,7 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
 
           <div>
             <h4 className="font-grotesk font-bold text-lg text-[#F3F4F6]">
-              Get Free Testnet USDT
+              Get Free mUSDT
             </h4>
             <p className="text-xs text-[#94A3B8] font-sans mt-1">
               Mint 100 Mock USDT instantly to test tipping creators on {CONTRACT_ADDRESSES.chainName}.

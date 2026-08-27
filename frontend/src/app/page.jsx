@@ -64,7 +64,7 @@ export default function LandingPage() {
               className="flex items-center space-x-2 px-6 py-3.5 rounded-xl bg-[#0E131F] border border-[#1E293B] hover:border-[#F59E0B]/50 text-[#F3F4F6] font-grotesk font-semibold text-sm transition-all hover:-translate-y-0.5"
             >
               <Coins className="w-4 h-4 text-[#F59E0B]" />
-              <span>Get Testnet mUSDT</span>
+              <span>Get Free mUSDT</span>
             </button>
           </div>
 

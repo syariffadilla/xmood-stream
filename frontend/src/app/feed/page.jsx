@@ -343,7 +343,7 @@ export default function FeedPage() {
           <div className="py-16 text-center space-y-3">
             <div className="w-8 h-8 border-2 border-[#00F5A0] border-t-transparent rounded-full animate-spin mx-auto"></div>
             <p className="text-xs font-mono text-[#94A3B8]">
-              Loading verified streams from BOT Chain Testnet...
+              Loading verified streams from {CONTRACT_ADDRESSES.chainName}...
             </p>
           </div>
         ) : filteredPosts.length === 0 ? (

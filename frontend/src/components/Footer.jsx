@@ -95,7 +95,7 @@ export default function Footer() {
                   rel="noreferrer"
                   className="hover:text-[#00F5A0] flex items-center space-x-1"
                 >
-                  <span>Testnet Faucet</span>
+                  <span>BOT Faucet</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </li>
@@ -151,7 +151,7 @@ export default function Footer() {
         <div className="pt-4 border-t border-[#1E293B] flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#64748B]">
           <div>© 2026 X-Mood Stream. Built for BOT Chain & EVM Ecosystems.</div>
           <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-            <span>Status: <strong className="text-[#00F5A0]">Live on BOT Chain Testnet</strong></span>
+            <span>Status: <strong className="text-[#00F5A0]">Live on {CONTRACT_ADDRESSES.chainName}</strong></span>
           </div>
         </div>
       </div>

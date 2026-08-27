@@ -236,7 +236,7 @@ export default function ProfilePage() {
               {nativeFormatted} <span className="text-xs text-[#94A3B8]">BOT</span>
             </div>
             <div className="text-[11px] font-mono text-[#00F5A0]">
-              BOT Chain Testnet
+              {CONTRACT_ADDRESSES.chainName}
             </div>
           </div>
 
