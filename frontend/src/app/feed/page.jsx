@@ -117,7 +117,7 @@ export default function FeedPage() {
 
             return {
               id: Number(post.id),
-              author: post.author,
+              author: post.author.toLowerCase(),
               rawContent: post.contentHash,
               content: parsed.text,
               mediaUrl: parsed.mediaUrl,
@@ -137,7 +137,7 @@ export default function FeedPage() {
       if (validPosts.length < 3) {
         validPosts.push({
           id: 902,
-          author: '0x3ED6C4092bF52B289659f81643c1626788B2A109',
+          author: '0x34758c708aca45385162348438899580f78dc150',
           rawContent: '#Alpha 🚀 Launching our DePIN AI compute node on BOT Chain! Instant transactions and sub-cent gas fees make creator micro-streaming seamless.',
           content: '#Alpha 🚀 Launching our DePIN AI compute node on BOT Chain! Instant transactions and sub-cent gas fees make creator micro-streaming seamless.',
           mediaUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80',
@@ -147,7 +147,7 @@ export default function FeedPage() {
         });
         validPosts.push({
           id: 901,
-          author: '0x7F4b119A29cbB42F64a781C2605E82dB49103C8e',
+          author: '0x16c5cb15a0ceb9f5dc83b9fe58aa475b0363ddac',
           rawContent: '#DeFi 📊 SocialFi analytics update: 95% direct tipping vault split is officially outperforming traditional web2 creator models.',
           content: '#DeFi 📊 SocialFi analytics update: 95% direct tipping vault split is officially outperforming traditional web2 creator models.',
           mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
@@ -157,7 +157,7 @@ export default function FeedPage() {
         });
         validPosts.push({
           id: 900,
-          author: '0x99248271A9283746192837461928374619283741',
+          author: '0x00299f76c116d2f03e342e6911e16a892b02c4e3',
           rawContent: '#NFT 🎨 Generative mood art minted and tied to my on-chain stream. Tip in USDT to unlock the high-res NFT badge!',
           content: '#NFT 🎨 Generative mood art minted and tied to my on-chain stream. Tip in USDT to unlock the high-res NFT badge!',
           mediaUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=800&q=80',

@@ -73,26 +73,26 @@ export default function LeaderboardPage() {
 
       // Add default verified creators if empty
       if (Object.keys(creatorMap).length === 0) {
-        creatorMap['0x3ed6c4092bf52b289659f81643c1626788b2a109'] = {
-          address: '0x3ED6C4092bF52B289659f81643c1626788B2A109',
+        creatorMap['0x34758c708aca45385162348438899580f78dc150'] = {
+          address: '0x34758c708aca45385162348438899580f78dc150',
           tipsReceived: 125.0,
           postCount: 8,
         };
-        creatorMap['0x7f4b119a29cbb42f64a781c2605e82db49103c8e'] = {
-          address: '0x7F4b119A29cbB42F64a781C2605E82dB49103C8e',
+        creatorMap['0x16c5cb15a0ceb9f5dc83b9fe58aa475b0363ddac'] = {
+          address: '0x16c5cb15a0ceb9f5dc83b9fe58aa475b0363ddac',
           tipsReceived: 85.5,
           postCount: 5,
         };
       }
 
       if (Object.keys(tipperMap).length === 0) {
-        tipperMap['0x1192837461928374619283746192837461928374'] = {
-          address: '0x1192837461928374619283746192837461928374',
+        tipperMap['0x00299f76c116d2f03e342e6911e16a892b02c4e3'] = {
+          address: '0x00299f76c116d2f03e342e6911e16a892b02c4e3',
           tipsSent: 150.0,
           tipsCount: 12,
         };
-        tipperMap['0x2218283746192837461928374619283746192837'] = {
-          address: '0x2218283746192837461928374619283746192837',
+        tipperMap['0xf49ddf41b02a714c38347cc724f094706fdbd86c'] = {
+          address: '0xf49ddf41b02a714c38347cc724f094706fdbd86c',
           tipsSent: 75.0,
           tipsCount: 4,
         };
