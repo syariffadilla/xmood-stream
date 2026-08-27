@@ -29,6 +29,8 @@ import {
   Menu,
   X,
   AlertTriangle,
+  Search,
+  BookOpen,
 } from 'lucide-react';
 
 export default function Navbar({ onOpenCreate, onOpenFaucet }) {
