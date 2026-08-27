@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   Search,
   BookOpen,
+  Check,
 } from 'lucide-react';
 
 export default function Navbar({ onOpenCreate, onOpenFaucet }) {
@@ -38,8 +39,10 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
   const { address, isConnected, chain } = useAccount();
   const { switchChain } = useSwitchChain();
   const [isEcosystemOpen, setIsEcosystemOpen] = useState(false);
+  const [isNetworkMenuOpen, setIsNetworkMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const networkRef = useRef(null);
   const mobileMenuRef = useRef(null);
 
   // Close dropdown on outside click
@@ -47,6 +50,9 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsEcosystemOpen(false);
+      }
+      if (networkRef.current && !networkRef.current.contains(event.target)) {
+        setIsNetworkMenuOpen(false);
       }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target)) {
         setIsMobileMenuOpen(false);
@@ -167,31 +173,109 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
               </div>
             </Link>
 
-            {/* Dynamic Network indicator badge & 1-click switcher */}
-            {isConnected && chain?.id === 968 ? (
+            {/* INTERACTIVE NETWORK SELECTOR DROPDOWN (Mainnet 677 vs Testnet 968) */}
+            <div className="relative" ref={networkRef}>
               <button
-                onClick={() => switchChain && switchChain({ chainId: 677 })}
-                className="flex items-center space-x-1.5 bg-[#F59E0B]/20 border border-[#F59E0B]/60 px-2.5 py-1 rounded-full text-[11px] font-mono text-[#F59E0B] hover:bg-[#F59E0B] hover:text-[#090C15] transition-all shadow-md group cursor-pointer"
-                title="Currently on Testnet. Click to switch to BOT Chain Mainnet"
+                onClick={() => setIsNetworkMenuOpen(!isNetworkMenuOpen)}
+                className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border shadow-sm ${
+                  chain?.id === 968
+                    ? 'bg-[#F59E0B]/15 border-[#F59E0B]/50 text-[#F59E0B] hover:bg-[#F59E0B]/25'
+                    : isWrongChain
+                    ? 'bg-red-500/20 border-red-500 text-red-400 hover:bg-red-500/30'
+                    : 'bg-[#0E131F] border-[#1E293B] hover:border-[#00F5A0]/50 text-[#00F5A0]'
+                }`}
+                title="Click to switch between BOT Chain Mainnet & Testnet"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse"></span>
-                <span className="font-bold">Testnet (Switch to Mainnet ↗)</span>
+                <span
+                  className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                    chain?.id === 968
+                      ? 'bg-[#F59E0B]'
+                      : isWrongChain
+                      ? 'bg-red-500'
+                      : 'bg-[#00F5A0]'
+                  }`}
+                ></span>
+                <span className="font-semibold">
+                  {chain?.id === 968
+                    ? 'BOT Testnet'
+                    : chain?.id === 677
+                    ? 'BOT Mainnet'
+                    : chain?.name || 'BOT Mainnet'}
+                </span>
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform duration-200 ${
+                    isNetworkMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
               </button>
-            ) : isWrongChain ? (
-              <button
-                onClick={() => switchChain && switchChain({ chainId: 677 })}
-                className="flex items-center space-x-1.5 bg-red-500/20 border border-red-500 px-2.5 py-1 rounded-full text-[11px] font-mono text-red-400 hover:bg-red-500 hover:text-white transition-all animate-pulse shadow-md cursor-pointer"
-                title="Click to switch wallet to BOT Chain Mainnet"
-              >
-                <AlertTriangle className="w-3 h-3" />
-                <span className="font-bold">Switch to BOT Chain Mainnet</span>
-              </button>
-            ) : (
-              <div className="hidden sm:flex items-center space-x-1.5 bg-[#0E131F] border border-[#1E293B] px-2.5 py-1 rounded-full text-[11px] font-mono text-[#00F5A0]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00F5A0] animate-pulse"></span>
-                <span className="font-medium">{chain ? (chain.id === 677 ? 'BOT Chain Mainnet' : chain.name) : 'BOT Chain Mainnet'}</span>
-              </div>
-            )}
+
+              {/* Dropdown Menu */}
+              {isNetworkMenuOpen && (
+                <div className="absolute left-0 mt-2 w-64 rounded-2xl bg-[#090C15]/95 border border-[#1E293B] backdrop-blur-xl shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[#64748B] border-b border-[#1E293B]">
+                    Select BOT Chain Network
+                  </div>
+
+                  {/* Option 1: BOT Chain Mainnet */}
+                  <button
+                    onClick={() => {
+                      if (switchChain) switchChain({ chainId: 677 });
+                      setIsNetworkMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all group ${
+                      chain?.id === 677 || (!isConnected && CONTRACT_ADDRESSES.chainId === 677)
+                        ? 'bg-[#00F5A0]/10 border border-[#00F5A0]/30 text-[#F3F4F6]'
+                        : 'hover:bg-[#182032] text-[#94A3B8] hover:text-[#F3F4F6]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-2 h-2 rounded-full bg-[#00F5A0] shadow-sm shadow-[#00F5A0]"></div>
+                      <div>
+                        <div className="font-grotesk font-bold text-xs flex items-center space-x-1.5 text-[#F3F4F6]">
+                          <span>BOT Chain Mainnet</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#00F5A0]/20 text-[#00F5A0] font-bold">
+                            Live
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-mono text-[#64748B]">Chain ID: 677</div>
+                      </div>
+                    </div>
+                    {(chain?.id === 677 || (!isConnected && CONTRACT_ADDRESSES.chainId === 677)) && (
+                      <Check className="w-4 h-4 text-[#00F5A0]" />
+                    )}
+                  </button>
+
+                  {/* Option 2: BOT Chain Testnet */}
+                  <button
+                    onClick={() => {
+                      if (switchChain) switchChain({ chainId: 968 });
+                      setIsNetworkMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all group ${
+                      chain?.id === 968
+                        ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F3F4F6]'
+                        : 'hover:bg-[#182032] text-[#94A3B8] hover:text-[#F3F4F6]'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-2 h-2 rounded-full bg-[#F59E0B] shadow-sm shadow-[#F59E0B]"></div>
+                      <div>
+                        <div className="font-grotesk font-bold text-xs flex items-center space-x-1.5 text-[#F3F4F6]">
+                          <span>BOT Chain Testnet</span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] font-bold">
+                            Test
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-mono text-[#64748B]">Chain ID: 968 (Bohr)</div>
+                      </div>
+                    </div>
+                    {chain?.id === 968 && (
+                      <Check className="w-4 h-4 text-[#F59E0B]" />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* CENTER: Navigation Links & Ecosystem Dropdown (Desktop) */}
