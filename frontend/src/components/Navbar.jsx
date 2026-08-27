@@ -403,7 +403,6 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
           </a>
         </div>
 
-      </div>
     </header>
   );
 }
