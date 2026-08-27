@@ -154,8 +154,8 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
               href="/"
               className="flex items-center space-x-2.5 group transition-transform active:scale-95"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center shadow-lg shadow-[#00F5A0]/25 group-hover:shadow-[#00F5A0]/40 transition-all">
-                <Sparkles className="w-5 h-5 text-[#090C15] animate-spin-slow" />
+              <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center shadow-lg shadow-[#00F5A0]/20 group-hover:scale-105 transition-transform duration-200">
+                <span className="font-mono font-extrabold text-[#090C15] text-sm">X</span>
               </div>
               <div className="flex flex-col">
                 <span className="font-grotesk font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-[#F3F4F6] via-[#E2E8F0] to-[#94A3B8] bg-clip-text text-transparent group-hover:from-[#00F5A0] group-hover:to-[#00D9F5] transition-all">
@@ -167,20 +167,29 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
               </div>
             </Link>
 
-            {/* Network indicator badge & 1-click switcher */}
-            {isWrongChain ? (
+            {/* Dynamic Network indicator badge & 1-click switcher */}
+            {isConnected && chain?.id === 968 ? (
               <button
                 onClick={() => switchChain && switchChain({ chainId: 677 })}
-                className="flex items-center space-x-1.5 bg-[#F59E0B]/20 border border-[#F59E0B] px-2.5 py-1 rounded-full text-[11px] font-mono text-[#F59E0B] hover:bg-[#F59E0B] hover:text-[#090C15] transition-all animate-pulse shadow-md"
+                className="flex items-center space-x-1.5 bg-[#F59E0B]/20 border border-[#F59E0B]/60 px-2.5 py-1 rounded-full text-[11px] font-mono text-[#F59E0B] hover:bg-[#F59E0B] hover:text-[#090C15] transition-all shadow-md group cursor-pointer"
+                title="Currently on Testnet. Click to switch to BOT Chain Mainnet"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse"></span>
+                <span className="font-bold">Testnet (Switch to Mainnet ↗)</span>
+              </button>
+            ) : isWrongChain ? (
+              <button
+                onClick={() => switchChain && switchChain({ chainId: 677 })}
+                className="flex items-center space-x-1.5 bg-red-500/20 border border-red-500 px-2.5 py-1 rounded-full text-[11px] font-mono text-red-400 hover:bg-red-500 hover:text-white transition-all animate-pulse shadow-md cursor-pointer"
                 title="Click to switch wallet to BOT Chain Mainnet"
               >
-                <AlertTriangle className="w-3 h-3 text-[#F59E0B]" />
-                <span className="font-bold">Switch to BOT Chain</span>
+                <AlertTriangle className="w-3 h-3" />
+                <span className="font-bold">Switch to BOT Chain Mainnet</span>
               </button>
             ) : (
-              <div className="hidden sm:flex items-center space-x-1.5 bg-[#0E131F] border border-[#1E293B] px-2 py-0.5 rounded-full text-[11px] font-mono text-[#00F5A0]">
+              <div className="hidden sm:flex items-center space-x-1.5 bg-[#0E131F] border border-[#1E293B] px-2.5 py-1 rounded-full text-[11px] font-mono text-[#00F5A0]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#00F5A0] animate-pulse"></span>
-                <span className="font-medium">{chain?.name || 'BOT Chain'}</span>
+                <span className="font-medium">{chain ? (chain.id === 677 ? 'BOT Chain Mainnet' : chain.name) : 'BOT Chain Mainnet'}</span>
               </div>
             )}
           </div>
