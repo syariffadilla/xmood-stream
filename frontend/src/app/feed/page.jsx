@@ -28,7 +28,11 @@ import {
   Share2,
   Zap,
   TrendingUp,
-  Tag
+  Tag,
+  Upload,
+  Trash2,
+  Link as LinkIcon,
+  X
 } from 'lucide-react';
 
 const CATEGORY_TABS = [
@@ -49,8 +53,61 @@ export default function FeedPage() {
   const [isFaucetOpen, setIsFaucetOpen] = useState(false);
   const [quickContent, setQuickContent] = useState('');
   const [quickMedia, setQuickMedia] = useState('');
+  const [quickMediaType, setQuickMediaType] = useState('upload'); // 'upload' | 'url'
   const [showQuickMedia, setShowQuickMedia] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const fileInputRef = React.useRef(null);
+
+  const handleImageFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (PNG, JPG, WEBP, GIF)');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image size must be under 8MB');
+      return;
+    }
+
+    toast.loading('Optimizing image for on-chain broadcast...', { id: 'image-upload' });
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 640;
+        const MAX_HEIGHT = 640;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+        setQuickMedia(dataUrl);
+        toast.success('📸 Image attached and optimized!', { id: 'image-upload' });
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const publicClient = usePublicClient();
   const { address, isConnected } = useAccount();
@@ -255,21 +312,90 @@ export default function FeedPage() {
               />
 
               {showQuickMedia && (
-                <div className="p-3 bg-[#090C15] border border-[#1E293B] rounded-xl space-y-2">
-                  <input
-                    type="url"
-                    value={quickMedia}
-                    onChange={(e) => setQuickMedia(e.target.value)}
-                    placeholder="Enter Image URL (e.g. Unsplash, IPFS, Imgur, GIF)..."
-                    className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-1.5 text-xs font-mono text-[#F3F4F6] outline-none"
-                  />
-                  {quickMedia && (
-                    <img
-                      src={quickMedia}
-                      alt="Preview"
-                      className="w-full h-32 object-cover rounded-lg border border-[#1E293B]"
-                      onError={(e) => { e.target.style.display = 'none'; }}
+                <div className="p-3.5 bg-[#090C15] border border-[#1E293B] rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5 bg-[#0E131F] p-1 rounded-lg border border-[#1E293B] text-[11px] font-mono">
+                      <button
+                        type="button"
+                        onClick={() => setQuickMediaType('upload')}
+                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
+                          quickMediaType === 'upload'
+                            ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
+                            : 'text-[#94A3B8] hover:text-[#F3F4F6]'
+                        }`}
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>Upload File</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQuickMediaType('url')}
+                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
+                          quickMediaType === 'url'
+                            ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
+                            : 'text-[#94A3B8] hover:text-[#F3F4F6]'
+                        }`}
+                      >
+                        <LinkIcon className="w-3 h-3" />
+                        <span>Image URL</span>
+                      </button>
+                    </div>
+
+                    {quickMedia && (
+                      <button
+                        type="button"
+                        onClick={() => setQuickMedia('')}
+                        className="text-red-400 hover:text-red-300 text-xs font-mono flex items-center space-x-1 p-1 hover:bg-red-500/10 rounded-md transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {quickMediaType === 'upload' ? (
+                    <div>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={handleImageFileUpload}
+                        className="hidden"
+                      />
+                      {!quickMedia ? (
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          className="border-2 border-dashed border-[#1E293B] hover:border-[#00F5A0]/60 rounded-xl p-4 text-center cursor-pointer transition-colors bg-[#0E131F]/50 group"
+                        >
+                          <Upload className="w-6 h-6 text-[#94A3B8] group-hover:text-[#00F5A0] mx-auto mb-1.5 transition-colors" />
+                          <p className="text-xs font-medium text-[#F3F4F6]">
+                            Click to browse image from device / gallery
+                          </p>
+                          <p className="text-[10px] font-mono text-[#64748B] mt-0.5">
+                            PNG, JPG, WEBP, GIF (Auto-optimized for on-chain)
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <input
+                      type="url"
+                      value={quickMedia}
+                      onChange={(e) => setQuickMedia(e.target.value)}
+                      placeholder="Paste Image URL (e.g. Unsplash, IPFS, Imgur, GIF)..."
+                      className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-2 text-xs font-mono text-[#F3F4F6] outline-none"
                     />
+                  )}
+
+                  {quickMedia && (
+                    <div className="relative rounded-xl overflow-hidden border border-[#1E293B] max-h-48 bg-black/40">
+                      <img
+                        src={quickMedia}
+                        alt="Preview"
+                        className="w-full h-48 object-cover"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
                   )}
                 </div>
               )}
@@ -282,7 +408,7 @@ export default function FeedPage() {
                     className="flex items-center space-x-1 text-xs font-mono text-[#94A3B8] hover:text-[#00F5A0] transition-colors p-1.5 rounded-lg hover:bg-[#182032]"
                   >
                     <ImageIcon className="w-3.5 h-3.5 text-[#00F5A0]" />
-                    <span>{showQuickMedia ? 'Close Media' : 'Attach Image'}</span>
+                    <span>{showQuickMedia ? 'Close Media' : (quickMedia ? 'Change Image' : 'Attach Image')}</span>
                   </button>
                   <span className="text-[11px] font-mono text-[#00F5A0] hidden sm:inline">
                     • Earns 10 $XMS

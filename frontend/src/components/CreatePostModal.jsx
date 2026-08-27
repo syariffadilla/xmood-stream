@@ -17,7 +17,10 @@ import {
   Smile, 
   Check, 
   Zap,
-  Globe
+  Globe,
+  Upload,
+  Trash2,
+  Link as LinkIcon
 } from 'lucide-react';
 
 const MOOD_CATEGORIES = [
@@ -32,9 +35,62 @@ const MOOD_CATEGORIES = [
 export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
   const [content, setContent] = useState('');
   const [mediaUrl, setMediaUrl] = useState('');
+  const [mediaType, setMediaType] = useState('upload'); // 'upload' | 'url'
   const [showMediaInput, setShowMediaInput] = useState(false);
   const [selectedTag, setSelectedTag] = useState('alpha');
   const { address, isConnected } = useAccount();
+  const fileInputRef = React.useRef(null);
+
+  const handleImageFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file (PNG, JPG, WEBP, GIF)');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image size must be under 8MB');
+      return;
+    }
+
+    toast.loading('Optimizing image for on-chain broadcast...', { id: 'modal-upload' });
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 640;
+        const MAX_HEIGHT = 640;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height = Math.round((height * MAX_WIDTH) / width);
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width = Math.round((width * MAX_HEIGHT) / height);
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+        setMediaUrl(dataUrl);
+        toast.success('📸 Image attached and optimized!', { id: 'modal-upload' });
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const {
     data: hash,
@@ -154,31 +210,95 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
                 className="text-[#00F5A0] hover:underline flex items-center space-x-1"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
-                <span>{showMediaInput ? 'Hide Media URL' : '+ Attach Image / Media Link'}</span>
+                <span>{showMediaInput ? 'Hide Media' : (mediaUrl ? 'Change Image' : '+ Attach Image / Photo')}</span>
               </button>
               <span>{content.length}/280</span>
             </div>
           </div>
 
-          {/* Media / Image URL attachment */}
+          {/* Media / Image attachment */}
           {showMediaInput && (
-            <div className="space-y-2 p-3 bg-[#090C15] border border-[#1E293B] rounded-xl animate-in fade-in duration-150">
-              <label className="block text-xs font-mono text-[#94A3B8]">
-                Image or GIF URL (e.g. IPFS, Unsplash, Imgur, or direct link)
-              </label>
-              <input
-                type="url"
-                value={mediaUrl}
-                onChange={(e) => setMediaUrl(e.target.value)}
-                placeholder="https://images.unsplash.com/... or https://ipfs.io/..."
-                className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-2 text-xs font-mono text-[#F3F4F6] outline-none"
-              />
+            <div className="space-y-3 p-3.5 bg-[#090C15] border border-[#1E293B] rounded-xl animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 bg-[#0E131F] p-1 rounded-lg border border-[#1E293B] text-[11px] font-mono">
+                  <button
+                    type="button"
+                    onClick={() => setMediaType('upload')}
+                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
+                      mediaType === 'upload'
+                        ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
+                        : 'text-[#94A3B8] hover:text-[#F3F4F6]'
+                    }`}
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>Upload File</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMediaType('url')}
+                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
+                      mediaType === 'url'
+                        ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
+                        : 'text-[#94A3B8] hover:text-[#F3F4F6]'
+                    }`}
+                  >
+                    <LinkIcon className="w-3 h-3" />
+                    <span>Image URL</span>
+                  </button>
+                </div>
+
+                {mediaUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setMediaUrl('')}
+                    className="text-red-400 hover:text-red-300 text-xs font-mono flex items-center space-x-1 p-1 hover:bg-red-500/10 rounded-md transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
+                )}
+              </div>
+
+              {mediaType === 'upload' ? (
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleImageFileUpload}
+                    className="hidden"
+                  />
+                  {!mediaUrl ? (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-[#1E293B] hover:border-[#00F5A0]/60 rounded-xl p-4 text-center cursor-pointer transition-colors bg-[#0E131F]/50 group"
+                    >
+                      <Upload className="w-6 h-6 text-[#94A3B8] group-hover:text-[#00F5A0] mx-auto mb-1.5 transition-colors" />
+                      <p className="text-xs font-medium text-[#F3F4F6]">
+                        Click to browse image from device / gallery
+                      </p>
+                      <p className="text-[10px] font-mono text-[#64748B] mt-0.5">
+                        PNG, JPG, WEBP, GIF (Auto-optimized for on-chain)
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <input
+                  type="url"
+                  value={mediaUrl}
+                  onChange={(e) => setMediaUrl(e.target.value)}
+                  placeholder="Paste Image URL (e.g. Unsplash, IPFS, Imgur, GIF)..."
+                  className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-2 text-xs font-mono text-[#F3F4F6] outline-none"
+                />
+              )}
+
               {mediaUrl && (
-                <div className="relative rounded-lg overflow-hidden border border-[#1E293B] max-h-40">
+                <div className="relative rounded-xl overflow-hidden border border-[#1E293B] max-h-48 bg-black/40">
                   <img
                     src={mediaUrl}
-                    alt="Media preview"
-                    className="w-full h-40 object-cover"
+                    alt="Preview"
+                    className="w-full h-48 object-cover"
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
                 </div>
