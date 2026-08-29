@@ -25,8 +25,8 @@ export function Providers({ children }) {
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={darkTheme({
-            accentColor: '#3ED6C4',
-            accentColorForeground: '#12151C',
+            accentColor: '#D4A853',
+            accentColorForeground: '#11161B',
             borderRadius: 'medium',
             fontStack: 'system',
             overlayBlur: 'small',
@@ -37,22 +37,23 @@ export function Providers({ children }) {
             position="bottom-right"
             toastOptions={{
               style: {
-                background: '#1B1F29',
-                color: '#ECEDEF',
-                border: '1px solid #282D3B',
-                fontFamily: 'Space Grotesk, sans-serif',
-                fontSize: '14px',
+                background: '#181F26',
+                color: '#F0F3F6',
+                border: '1px solid #283542',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '13px',
+                borderRadius: '10px',
               },
               success: {
                 iconTheme: {
-                  primary: '#3FA796',
-                  secondary: '#12151C',
+                  primary: '#D4A853',
+                  secondary: '#11161B',
                 },
               },
               error: {
                 iconTheme: {
-                  primary: '#ff5555',
-                  secondary: '#12151C',
+                  primary: '#EF4444',
+                  secondary: '#11161B',
                 },
               },
             }}
