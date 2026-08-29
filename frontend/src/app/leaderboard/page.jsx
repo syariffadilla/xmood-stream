@@ -4,101 +4,97 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import CreatePostModal from '../../components/CreatePostModal';
+import TipModal from '../../components/TipModal';
 import FaucetModal from '../../components/FaucetModal';
 import { usePublicClient, useAccount } from 'wagmi';
-import { CONTRACT_ADDRESSES, getContractAddresses } from '../../contracts/addresses';
+import { getContractAddresses } from '../../contracts/addresses';
 import { CORE_ABI, TIP_VAULT_ABI } from '../../contracts/abis';
 import { formatUnits } from 'viem';
-import { Trophy, Crown, Heart, RefreshCw, User, Award, ArrowUpRight, Layers } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Trophy, Coins, RefreshCw, ExternalLink, ArrowUpRight, Award, User, ShieldCheck } from 'lucide-react';
 
 export default function LeaderboardPage() {
-  const [activeTab, setActiveTab] = useState('creators');
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isFaucetOpen, setIsFaucetOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const [topCreators, setTopCreators] = useState([]);
-  const [topTippers, setTopTippers] = useState([]);
-
+  const { address, chain } = useAccount();
   const publicClient = usePublicClient();
-  const { chain } = useAccount();
   const contracts = getContractAddresses(chain?.id);
 
-  const fetchLeaderboardData = useCallback(async (showToast = false) => {
-    if (!publicClient) return;
-    setLoading(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isTipOpen, setIsTipOpen] = useState(false);
+  const [isFaucetOpen, setIsFaucetOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+
+  const [activeTab, setActiveTab] = useState('creators');
+  const [creators, setCreators] = useState([]);
+  const [tippers, setTippers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchLeaderboard = useCallback(async () => {
+    if (!publicClient || !contracts.XMoodStreamCore || !contracts.TipVault) return;
     try {
-      // 1. Fetch total posts
-      const totalPosts = await publicClient.readContract({
+      setLoading(true);
+
+      const totalPostsBig = await publicClient.readContract({
         address: contracts.XMoodStreamCore,
         abi: CORE_ABI,
         functionName: 'getTotalPosts',
       });
+      const totalPosts = Number(totalPostsBig);
 
-      const count = Number(totalPosts);
       const creatorMap = {};
       const tipperMap = {};
 
-      // 2. Fetch all posts in parallel
-      const postIndices = [];
-      for (let i = 1; i <= Math.min(count, 100); i++) {
-        postIndices.push(i);
-      }
-
-      const posts = await Promise.all(
-        postIndices.map(async (i) => {
-          try {
-            return await publicClient.readContract({
+      if (totalPosts > 0) {
+        const postPromises = [];
+        for (let i = 1; i <= totalPosts; i++) {
+          postPromises.push(
+            publicClient.readContract({
               address: contracts.XMoodStreamCore,
               abi: CORE_ABI,
               functionName: 'getPost',
               args: [BigInt(i)],
-            });
-          } catch (e) {
-            return null;
-          }
-        })
-      );
-
-      // 3. Aggregate creators from on-chain posts
-      const uniqueAuthors = new Set();
-      for (const post of posts) {
-        if (!post || !post.author) continue;
-        const authorLower = post.author.toLowerCase();
-        uniqueAuthors.add(post.author);
-        if (!creatorMap[authorLower]) {
-          creatorMap[authorLower] = {
-            address: post.author,
-            tipsReceived: 0,
-            postCount: 1,
-          };
-        } else {
-          creatorMap[authorLower].postCount += 1;
+            }).catch(() => null)
+          );
         }
+
+        const rawPosts = await Promise.all(postPromises);
+        const validPosts = rawPosts.filter(Boolean);
+
+        for (const post of validPosts) {
+          const author = post.author.toLowerCase();
+          if (!creatorMap[author]) {
+            creatorMap[author] = {
+              address: post.author,
+              postCount: 0,
+              latestPostId: Number(post.id),
+              tipsReceived: 0,
+            };
+          }
+          creatorMap[author].postCount += 1;
+          if (Number(post.id) > creatorMap[author].latestPostId) {
+            creatorMap[author].latestPostId = Number(post.id);
+          }
+        }
+
+        // Fetch tips for creators
+        const creatorAddresses = Object.keys(creatorMap);
+        await Promise.all(
+          creatorAddresses.map(async (addr) => {
+            try {
+              const tipsBig = await publicClient.readContract({
+                address: contracts.TipVault,
+                abi: TIP_VAULT_ABI,
+                functionName: 'totalTipsReceived',
+                args: [creatorMap[addr].address],
+              });
+              creatorMap[addr].tipsReceived = parseFloat(formatUnits(tipsBig, 6));
+            } catch (e) {
+              creatorMap[addr].tipsReceived = 0;
+            }
+          })
+        );
       }
 
-      // Fetch on-chain total tips received for each creator
-      await Promise.all(
-        Array.from(uniqueAuthors).map(async (authorAddr) => {
-          const authorLower = authorAddr.toLowerCase();
-          try {
-            const tipsRaw = await publicClient.readContract({
-              address: contracts.TipVault,
-              abi: TIP_VAULT_ABI,
-              functionName: 'totalTipsReceived',
-              args: [authorAddr],
-            });
-            if (creatorMap[authorLower]) {
-              creatorMap[authorLower].tipsReceived = parseFloat(formatUnits(tipsRaw, 6));
-            }
-          } catch (e) {
-            console.warn(`Error reading tips for creator ${authorAddr}:`, e);
-          }
-        })
-      );
-
-      // 4. Discover on-chain tippers via TipSent event logs
+      // Query TipSent events for patrons
       try {
         const tipLogs = await publicClient.getLogs({
           address: contracts.TipVault,
@@ -113,267 +109,294 @@ export default function LeaderboardPage() {
             ],
           },
           fromBlock: 0n,
+          toBlock: 'latest',
         });
 
-        const uniqueTippers = new Set();
         for (const log of tipLogs) {
-          const from = log.args?.from;
-          if (!from) continue;
-          const fromLower = from.toLowerCase();
-          uniqueTippers.add(from);
-          if (!tipperMap[fromLower]) {
-            tipperMap[fromLower] = {
-              address: from,
-              tipsSent: 0,
-              tipsCount: 1,
-            };
-          } else {
-            tipperMap[fromLower].tipsCount += 1;
+          const fromAddr = log.args.from?.toLowerCase();
+          if (fromAddr) {
+            if (!tipperMap[fromAddr]) {
+              tipperMap[fromAddr] = {
+                address: log.args.from,
+                tipsSent: 0,
+                tipCount: 0,
+              };
+            }
+            tipperMap[fromAddr].tipCount += 1;
           }
         }
 
-        // Query accurate totalTipsSent for each tipper
+        const tipperAddresses = Object.keys(tipperMap);
         await Promise.all(
-          Array.from(uniqueTippers).map(async (tipperAddr) => {
-            const tipperLower = tipperAddr.toLowerCase();
+          tipperAddresses.map(async (addr) => {
             try {
-              const tipsSentRaw = await publicClient.readContract({
+              const sentBig = await publicClient.readContract({
                 address: contracts.TipVault,
                 abi: TIP_VAULT_ABI,
                 functionName: 'totalTipsSent',
-                args: [tipperAddr],
+                args: [tipperMap[addr].address],
               });
-              if (tipperMap[tipperLower]) {
-                tipperMap[tipperLower].tipsSent = parseFloat(formatUnits(tipsSentRaw, 6));
-              }
+              tipperMap[addr].tipsSent = parseFloat(formatUnits(sentBig, 6));
             } catch (e) {
-              console.warn(`Error reading tips sent for ${tipperAddr}:`, e);
+              tipperMap[addr].tipsSent = 0;
             }
           })
         );
-      } catch (logErr) {
-        console.warn('TipSent getLogs skipped or unsupported:', logErr);
-      }
+      } catch (err) {}
 
-      const creatorsList = Object.values(creatorMap).sort((a, b) => {
+      // Sort creators
+      const creatorList = Object.values(creatorMap).sort((a, b) => {
         if (b.tipsReceived !== a.tipsReceived) return b.tipsReceived - a.tipsReceived;
         return b.postCount - a.postCount;
       });
 
-      const tippersList = Object.values(tipperMap).sort((a, b) => {
+      // Sort patrons
+      const tipperList = Object.values(tipperMap).sort((a, b) => {
         if (b.tipsSent !== a.tipsSent) return b.tipsSent - a.tipsSent;
-        return b.tipsCount - a.tipsCount;
+        return b.tipCount - a.tipCount;
       });
 
-      setTopCreators(creatorsList);
-      setTopTippers(tippersList);
-
-      if (showToast) {
-        toast.success(`Leaderboard synced: ${creatorsList.length} creators, ${tippersList.length} tippers!`);
-      }
+      setCreators(creatorList);
+      setTippers(tipperList);
     } catch (err) {
-      console.error('Error fetching leaderboard:', err);
-      if (showToast) toast.error('Failed to sync leaderboard data');
+      console.error('Failed to load leaderboard:', err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [publicClient, contracts.XMoodStreamCore, contracts.TipVault]);
 
   useEffect(() => {
-    fetchLeaderboardData(false);
-  }, [fetchLeaderboardData]);
+    fetchLeaderboard();
+    const interval = setInterval(fetchLeaderboard, 8000);
+    return () => clearInterval(interval);
+  }, [fetchLeaderboard]);
 
-  const activeList = activeTab === 'creators' ? topCreators : topTippers;
+  const handleOpenTipFromLeaderboard = (creator) => {
+    setSelectedPost({
+      id: creator.latestPostId || 1,
+      author: creator.address,
+    });
+    setIsTipOpen(true);
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6]">
+    <div className="min-h-screen flex flex-col bg-base text-main selection:bg-gold selection:text-base">
       <Navbar
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenFaucet={() => setIsFaucetOpen(true)}
       />
 
-      <main className="flex-grow max-w-5xl mx-auto px-4 sm:px-6 w-full py-8 space-y-6">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
         
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0E131F] border border-[#1E293B] p-6 rounded-2xl shadow-xl">
+        {/* Header Telemetry */}
+        <div className="flex items-center justify-between pb-6 border-b border-line">
           <div>
-            <div className="flex items-center space-x-2">
-              <Trophy className="w-6 h-6 text-[#F59E0B]" />
-              <h1 className="font-grotesk font-bold text-2xl text-[#F3F4F6]">
-                SocialFi Leaderboard
-              </h1>
-            </div>
-            <p className="text-xs font-mono text-[#94A3B8] mt-1">
-              Top Creators by USDT earned & Top Patrons by USDT tipped on {contracts.chainName}
+            <h1 className="font-display font-bold text-xl sm:text-2xl text-main">
+              Protocol Leaderboard
+            </h1>
+            <p className="text-sub text-xs mt-0.5">
+              Verified ranking based on on-chain settlements on <span className="font-mono text-main">{contracts.chainName}</span>
             </p>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <div className="bg-[#090C15] border border-[#1E293B] p-1 rounded-xl flex items-center space-x-1 font-mono text-xs">
-              <button
-                onClick={() => setActiveTab('creators')}
-                className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg transition-colors ${
-                  activeTab === 'creators'
-                    ? 'bg-[#182032] text-[#00F5A0] font-bold shadow-sm'
-                    : 'text-[#94A3B8] hover:text-[#F3F4F6]'
-                }`}
-              >
-                <Crown className="w-3.5 h-3.5" />
-                <span>Top Creators</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('tippers')}
-                className={`flex items-center space-x-1.5 px-4 py-2 rounded-lg transition-colors ${
-                  activeTab === 'tippers'
-                    ? 'bg-[#182032] text-[#F59E0B] font-bold shadow-sm'
-                    : 'text-[#94A3B8] hover:text-[#F3F4F6]'
-                }`}
-              >
-                <Heart className="w-3.5 h-3.5" />
-                <span>Top Tippers</span>
-              </button>
-            </div>
-
-            <button
-              onClick={() => fetchLeaderboardData(true)}
-              disabled={loading}
-              className="p-2.5 rounded-xl bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/50 text-[#94A3B8] hover:text-[#00F5A0] transition-colors"
-              title="Refresh ranking"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#00F5A0]' : ''}`} />
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setIsRefreshing(true);
+              fetchLeaderboard();
+            }}
+            disabled={isRefreshing}
+            className="p-2 rounded-lg bg-surface hover:bg-elevated border border-line text-sub hover:text-main transition-colors flex items-center space-x-1.5 text-xs font-mono"
+            title="Refresh leaderboard"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-gold' : ''}`} />
+            <span className="hidden sm:inline">Sync</span>
+          </button>
         </div>
 
-        {/* Podium Top 3 Cards (If data exists) */}
-        {activeList.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {activeList.slice(0, 3).map((item, idx) => {
-              const rank = idx + 1;
-              const isFirst = rank === 1;
-              const isSecond = rank === 2;
+        {/* Tab Selector */}
+        <div className="mt-6 flex items-center space-x-2 border-b border-line pb-3">
+          <button
+            onClick={() => setActiveTab('creators')}
+            className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2 ${
+              activeTab === 'creators'
+                ? 'bg-surface text-main font-semibold border border-line'
+                : 'text-sub hover:text-main'
+            }`}
+          >
+            <Award className={`w-3.5 h-3.5 ${activeTab === 'creators' ? 'text-gold' : 'text-sub'}`} />
+            <span>Top Creators ({creators.length})</span>
+          </button>
 
-              return (
-                <div
-                  key={item.address}
-                  className={`p-6 rounded-2xl border transition-all relative overflow-hidden ${
-                    isFirst
-                      ? 'bg-gradient-to-br from-[#0E131F] via-[#111726] to-[#090C15] border-[#F59E0B]/50 shadow-xl shadow-[#F59E0B]/10 order-1 md:order-2 md:-translate-y-2'
-                      : isSecond
-                      ? 'bg-[#0E131F] border-[#1E293B] order-2 md:order-1'
-                      : 'bg-[#0E131F] border-[#1E293B] order-3'
-                  }`}
+          <button
+            onClick={() => setActiveTab('tippers')}
+            className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-2 ${
+              activeTab === 'tippers'
+                ? 'bg-surface text-main font-semibold border border-line'
+                : 'text-sub hover:text-main'
+            }`}
+          >
+            <Coins className={`w-3.5 h-3.5 ${activeTab === 'tippers' ? 'text-gold' : 'text-sub'}`} />
+            <span>Top Patrons ({tippers.length})</span>
+          </button>
+        </div>
+
+        {/* Leaderboard Table / Cards */}
+        <div className="mt-4">
+          {loading ? (
+            <div className="p-12 rounded-xl bg-surface border border-line text-center text-sub font-mono text-xs">
+              Calculating rankings from on-chain transactions...
+            </div>
+          ) : activeTab === 'creators' ? (
+            creators.length === 0 ? (
+              <div className="p-12 rounded-xl bg-surface border border-line text-center space-y-3">
+                <p className="text-main font-semibold text-sm">No creator activity recorded yet.</p>
+                <p className="text-sub text-xs max-w-sm mx-auto">
+                  Publish a post to register your wallet address on the on-chain leaderboard.
+                </p>
+                <button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="px-4 py-2 rounded-lg bg-gold hover:bg-gold-hover text-base font-semibold text-xs transition-colors"
                 >
-                  <div className="flex justify-between items-start mb-4">
+                  Broadcast Post
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {creators.map((creator, index) => {
+                  const isUser = address && creator.address.toLowerCase() === address.toLowerCase();
+                  return (
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm ${
-                        isFirst
-                          ? 'bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40'
-                          : isSecond
-                          ? 'bg-[#94A3B8]/20 text-[#94A3B8] border border-[#94A3B8]/40'
-                          : 'bg-[#B45309]/20 text-[#B45309] border border-[#B45309]/40'
+                      key={creator.address}
+                      className={`p-4 rounded-xl bg-surface border transition-colors flex items-center justify-between gap-4 ${
+                        isUser ? 'border-gold/50 bg-surface' : 'border-line hover:border-sub/30'
                       }`}
                     >
-                      #{rank}
+                      <div className="flex items-center space-x-3.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
+                          index === 0
+                            ? 'bg-gold text-base'
+                            : index === 1
+                            ? 'bg-elevated border border-line text-main'
+                            : index === 2
+                            ? 'bg-elevated border border-line text-sub'
+                            : 'text-sub'
+                        }`}>
+                          #{index + 1}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <a
+                              href={`${contracts.explorer}/address/${creator.address}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-xs font-semibold text-main hover:text-gold flex items-center space-x-1"
+                            >
+                              <span>{creator.address.slice(0, 6)}...{creator.address.slice(-4)}</span>
+                              <ExternalLink className="w-3 h-3 text-sub" />
+                            </a>
+                            {isUser && (
+                              <span className="px-1.5 py-0.5 rounded bg-gold/10 text-gold text-[10px] font-mono font-medium">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] font-mono text-sub mt-0.5">
+                            {creator.postCount} {creator.postCount === 1 ? 'broadcast' : 'broadcasts'} published
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4 text-right">
+                        <div>
+                          <div className="text-xs font-mono font-bold text-gold">
+                            +{creator.tipsReceived.toFixed(2)} USDT
+                          </div>
+                          <div className="text-[10px] font-mono text-sub">
+                            Tips Earned (95%)
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleOpenTipFromLeaderboard(creator)}
+                          className="hidden sm:flex px-3 py-1.5 rounded-lg bg-elevated hover:bg-gold hover:text-base border border-line text-main text-xs font-mono transition-colors items-center space-x-1"
+                        >
+                          <span>Tip</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                    <span className="text-xs font-mono text-[#94A3B8]">
-                      {activeTab === 'creators' ? `${item.postCount || 1} Streams` : `${item.tipsCount || 1} Tips`}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="font-mono text-sm font-bold text-[#F3F4F6]">
-                      {item.address.slice(0, 6)}...{item.address.slice(-4)}
-                    </div>
-                    <div className="text-xs font-mono text-[#94A3B8]">
-                      {activeTab === 'creators' ? 'Total Tips Earned' : 'Total Tips Sent'}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-[#1E293B] flex items-baseline space-x-2">
-                    <span className="font-mono text-2xl font-extrabold text-[#F59E0B]">
-                      {activeTab === 'creators' ? item.tipsReceived.toFixed(2) : item.tipsSent.toFixed(2)}
-                    </span>
-                    <span className="font-mono text-xs text-[#94A3B8]">USDT</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Full Table Leaderboard / Empty State */}
-        <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl overflow-hidden shadow-xl">
-          <div className="px-6 py-4 border-b border-[#1E293B] flex items-center justify-between">
-            <h3 className="font-grotesk font-bold text-sm text-[#F3F4F6]">
-              {activeTab === 'creators' ? 'Creator Ranking Ledger' : 'Top Tipper Ranking Ledger'}
-            </h3>
-            <span className="text-xs font-mono text-[#94A3B8]">
-              {activeList.length} Verified Participants
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="py-16 text-center text-sm font-mono text-[#94A3B8] space-y-2">
-              <div className="w-6 h-6 border-2 border-[#00F5A0] border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p>Scanning blockchain for rankings...</p>
-            </div>
-          ) : activeList.length === 0 ? (
-            <div className="py-16 text-center space-y-3 px-4">
-              <Layers className="w-8 h-8 text-[#94A3B8] mx-auto opacity-50" />
-              <p className="font-grotesk font-semibold text-sm text-[#F3F4F6]">
-                {activeTab === 'creators'
-                  ? 'No creators ranked on this network yet'
-                  : 'No tip transactions recorded on this network yet'}
-              </p>
-              <p className="text-xs font-mono text-[#94A3B8] max-w-sm mx-auto">
-                {activeTab === 'creators'
-                  ? 'Be the first creator to broadcast a stream on XMoodStreamCore and earn USDT tips!'
-                  : 'Send a USDT tip to any creator post on the Live Feed to appear on the Patron leaderboard!'}
-              </p>
-              <button
-                onClick={() => setIsCreateOpen(true)}
-                className="px-4 py-2 rounded-xl bg-[#00F5A0] hover:bg-[#00F5A0]/90 text-[#090C15] font-grotesk font-bold text-xs uppercase transition-all mt-2"
-              >
-                Broadcast Stream
-              </button>
-            </div>
+                  );
+                })}
+              </div>
+            )
           ) : (
-            <div className="divide-y divide-[#1E293B]">
-              {activeList.map((item, idx) => (
-                <div
-                  key={item.address}
-                  className="px-6 py-4 flex items-center justify-between hover:bg-[#182032]/40 transition-colors text-xs font-mono"
-                >
-                  <div className="flex items-center space-x-4">
-                    <span className="w-6 text-center font-bold text-[#94A3B8]">
-                      #{idx + 1}
-                    </span>
-                    <div className="w-8 h-8 rounded-xl bg-[#090C15] border border-[#1E293B] flex items-center justify-center font-bold text-[#00F5A0]">
-                      {item.address.slice(2, 4).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-[#F3F4F6]">
-                        {item.address}
-                      </div>
-                      <div className="text-[11px] text-[#64748B]">
-                        {activeTab === 'creators' ? `${item.postCount || 1} on-chain micro-posts` : `${item.tipsCount || 1} creator tip transactions`}
-                      </div>
-                    </div>
-                  </div>
+            tippers.length === 0 ? (
+              <div className="p-12 rounded-xl bg-surface border border-line text-center space-y-3">
+                <p className="text-main font-semibold text-sm">No patron tips recorded yet.</p>
+                <p className="text-sub text-xs max-w-sm mx-auto">
+                  Tip a creator on the stream feed to appear on the patron leaderboard.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tippers.map((tipper, index) => {
+                  const isUser = address && tipper.address.toLowerCase() === address.toLowerCase();
+                  return (
+                    <div
+                      key={tipper.address}
+                      className={`p-4 rounded-xl bg-surface border transition-colors flex items-center justify-between gap-4 ${
+                        isUser ? 'border-gold/50 bg-surface' : 'border-line hover:border-sub/30'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
+                          index === 0
+                            ? 'bg-gold text-base'
+                            : index === 1
+                            ? 'bg-elevated border border-line text-main'
+                            : 'text-sub'
+                        }`}>
+                          #{index + 1}
+                        </div>
 
-                  <div className="text-right">
-                    <div className="font-bold text-[#F59E0B] text-sm">
-                      +{activeTab === 'creators' ? item.tipsReceived.toFixed(2) : item.tipsSent.toFixed(2)} USDT
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <a
+                              href={`${contracts.explorer}/address/${tipper.address}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-xs font-semibold text-main hover:text-gold flex items-center space-x-1"
+                            >
+                              <span>{tipper.address.slice(0, 6)}...{tipper.address.slice(-4)}</span>
+                              <ExternalLink className="w-3 h-3 text-sub" />
+                            </a>
+                            {isUser && (
+                              <span className="px-1.5 py-0.5 rounded bg-gold/10 text-gold text-[10px] font-mono font-medium">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] font-mono text-sub mt-0.5">
+                            {tipper.tipCount} {tipper.tipCount === 1 ? 'tip transfer' : 'tip transfers'} executed
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-xs font-mono font-bold text-glacier">
+                          {tipper.tipsSent.toFixed(2)} USDT
+                        </div>
+                        <div className="text-[10px] font-mono text-sub">
+                          Total Tipped
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-[#00F5A0]">
-                      Verified on {contracts.chainName}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )
           )}
         </div>
 
@@ -381,15 +404,24 @@ export default function LeaderboardPage() {
 
       <Footer />
 
+      {/* Modals */}
       <CreatePostModal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onPostCreated={() => {
-          setTimeout(() => {
-            fetchLeaderboardData(false);
-          }, 3500);
+        onClose={() => {
+          setIsCreateOpen(false);
+          fetchLeaderboard();
         }}
       />
+
+      <TipModal
+        isOpen={isTipOpen}
+        onClose={() => {
+          setIsTipOpen(false);
+          fetchLeaderboard();
+        }}
+        post={selectedPost}
+      />
+
       <FaucetModal
         isOpen={isFaucetOpen}
         onClose={() => setIsFaucetOpen(false)}

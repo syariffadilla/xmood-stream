@@ -1,232 +1,244 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { CONTRACT_ADDRESSES, getContractAddresses } from '../contracts/addresses';
+import { getContractAddresses } from '../contracts/addresses';
 import { MOCK_USDT_ABI, TIP_VAULT_ABI } from '../contracts/abis';
-import { formatUnits, parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { X, Heart, Shield, Loader2, DollarSign } from 'lucide-react';
+import { X, Coins, Check, ArrowRight, Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
 
-export default function TipModal({ isOpen, onClose, post, onTipSuccess }) {
-  const [tipAmount, setTipAmount] = useState('5');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const { address, chain } = useAccount();
+const TIP_PRESETS = ['1', '5', '10', '25', '50'];
+
+export default function TipModal({ isOpen, onClose, post }) {
+  const { address, isConnected, chain } = useAccount();
   const contracts = getContractAddresses(chain?.id);
 
-  // Read current user mUSDT balance
+  const [tipAmount, setTipAmount] = useState('5');
+  const [step, setStep] = useState('idle'); // 'idle' | 'approving' | 'tipping'
+
+  // Read user USDT balance
   const { data: usdtBalance, refetch: refetchBalance } = useReadContract({
     address: contracts.MockUSDT,
     abi: MOCK_USDT_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address && isOpen },
   });
 
-  // Read current allowance for TipVault
+  // Read allowance for TipVault
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: contracts.MockUSDT,
     abi: MOCK_USDT_ABI,
     functionName: 'allowance',
-    args: address ? [address, contracts.TipVault] : undefined,
-    query: { enabled: !!address },
+    args: address && contracts.TipVault ? [address, contracts.TipVault] : undefined,
+    query: { enabled: !!address && isOpen },
   });
 
-  const { writeContractAsync } = useWriteContract();
+  // Write contract hook
+  const { data: txHash, writeContract, isPending: isWritePending, error: writeError, reset } = useWriteContract();
+  const { isLoading: isWaitingTx, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+
+  useEffect(() => {
+    if (isTxSuccess) {
+      if (step === 'approving') {
+        toast.success('USDT allowance approved');
+        refetchAllowance();
+        setStep('idle');
+        reset();
+      } else if (step === 'tipping') {
+        toast.success(`Tip of ${tipAmount} USDT sent to author`);
+        refetchBalance();
+        setStep('idle');
+        reset();
+        onClose();
+      }
+    }
+  }, [isTxSuccess, step, tipAmount, refetchAllowance, refetchBalance, reset, onClose]);
+
+  useEffect(() => {
+    if (writeError) {
+      toast.error(writeError.shortMessage || 'Transaction failed');
+      setStep('idle');
+    }
+  }, [writeError]);
 
   if (!isOpen || !post) return null;
 
-  const parsedAmount = parseFloat(tipAmount) || 0;
-  const creatorCut = (parsedAmount * 0.95).toFixed(2);
-  const treasuryCut = (parsedAmount * 0.05).toFixed(2);
-  const amountInUnits = parsedAmount > 0 ? parseUnits(tipAmount, 6) : 0n;
+  const tipAmountNumber = parseFloat(tipAmount) || 0;
+  const parsedTipAmount = tipAmountNumber > 0 ? parseUnits(tipAmount, 6) : 0n;
+  const hasAllowance = allowance !== undefined && allowance >= parsedTipAmount && parsedTipAmount > 0n;
 
-  const presets = ['1', '5', '10', '25', '50'];
+  const creatorShare = (tipAmountNumber * 0.95).toFixed(2);
+  const protocolShare = (tipAmountNumber * 0.05).toFixed(2);
 
-  const handleSendTip = async () => {
-    if (!address) {
-      toast.error('Please connect your wallet first');
+  const handleApprove = () => {
+    if (!isConnected) {
+      toast.error('Connect your wallet first');
       return;
     }
-    if (parsedAmount <= 0) {
-      toast.error('Please enter a valid tip amount');
+    setStep('approving');
+    writeContract({
+      address: contracts.MockUSDT,
+      abi: MOCK_USDT_ABI,
+      functionName: 'approve',
+      args: [contracts.TipVault, parseUnits('100000', 6)],
+    });
+  };
+
+  const handleSendTip = () => {
+    if (!isConnected) {
+      toast.error('Connect your wallet first');
+      return;
+    }
+    if (tipAmountNumber <= 0) {
+      toast.error('Enter a valid tip amount');
+      return;
+    }
+    if (usdtBalance !== undefined && usdtBalance < parsedTipAmount) {
+      toast.error('Insufficient mUSDT balance. Get testnet tokens from Faucet.');
       return;
     }
 
-    if (usdtBalance && usdtBalance < amountInUnits) {
-      toast.error('Insufficient mUSDT balance! Use the Faucet button to get test tokens.');
-      return;
-    }
-
-    if (post.author.toLowerCase() === address.toLowerCase()) {
-      toast.error('You cannot tip your own post!');
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      // Step 1: Check Allowance & Approve if necessary
-      const currentAllowance = allowance || 0n;
-      if (currentAllowance < amountInUnits) {
-        toast.loading('Step 1/2: Approving mUSDT spend...', { id: 'tip-process' });
-        const approveTx = await writeContractAsync({
-          address: contracts.MockUSDT,
-          abi: MOCK_USDT_ABI,
-          functionName: 'approve',
-          args: [contracts.TipVault, parseUnits('1000000', 6)], // approve large allowance for seamless UX
-        });
-        toast.loading('Mining approval on-chain...', { id: 'tip-process' });
-        await new Promise((r) => setTimeout(r, 3000));
-        await refetchAllowance();
-      }
-
-      // Step 2: Tip the post via TipVault
-      toast.loading(`Step 2/2: Sending ${tipAmount} mUSDT tip...`, { id: 'tip-process' });
-      const tipTx = await writeContractAsync({
-        address: contracts.TipVault,
-        abi: TIP_VAULT_ABI,
-        functionName: 'tipPost',
-        args: [BigInt(post.id), post.author, amountInUnits],
-      });
-
-      toast.loading('Confirming tip transaction...', { id: 'tip-process' });
-      await new Promise((r) => setTimeout(r, 3500));
-
-      toast.success(`Successfully sent ${tipAmount} mUSDT tip to ${post.author.slice(0, 6)}...${post.author.slice(-4)}!`, {
-        id: 'tip-process',
-      });
-
-      refetchBalance();
-      if (onTipSuccess) onTipSuccess();
-      onClose();
-
-    } catch (err) {
-      console.error(err);
-      toast.error(err.shortMessage || err.message || 'Tip transaction failed', { id: 'tip-process' });
-    } finally {
-      setIsProcessing(false);
-    }
+    setStep('tipping');
+    writeContract({
+      address: contracts.TipVault,
+      abi: TIP_VAULT_ABI,
+      functionName: 'tipPost',
+      args: [BigInt(post.id), post.author, parsedTipAmount],
+    });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-      <div className="relative w-full max-w-md bg-[#1B1F29] border border-[#282D3B] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-base/80 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-xl bg-surface border border-line p-6 space-y-4 shadow-xl">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#282D3B] bg-[#10131A]/60">
-          <div className="flex items-center space-x-2">
-            <Heart className="w-4 h-4 text-[#E8A33D]" />
-            <h3 className="font-grotesk font-bold text-base text-[#ECEDEF]">
-              Tip Creator (Post #{post.id})
-            </h3>
+        <div className="flex items-center justify-between border-b border-line pb-4">
+          <div>
+            <h2 className="font-display font-bold text-base text-main">
+              Send USDT Tip
+            </h2>
+            <p className="text-[11px] font-mono text-sub mt-0.5">
+              Direct settlement to Post #{post.id} ({post.author.slice(0, 6)}...{post.author.slice(-4)})
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="text-[#8B92A3] hover:text-[#ECEDEF] p-1 rounded-md hover:bg-[#272A31] transition-colors"
+            className="p-1 rounded-lg text-sub hover:text-main hover:bg-elevated transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-5">
-          {/* Creator Details */}
-          <div className="bg-[#12151C] border border-[#282D3B] p-3 rounded-lg flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-7 h-7 rounded-full bg-[#272A31] flex items-center justify-center font-mono text-xs text-[#3ED6C4] font-bold">
-                {post.author.slice(2, 4).toUpperCase()}
-              </div>
-              <div>
-                <div className="text-xs text-[#8B92A3] font-mono">Recipient Creator</div>
-                <div className="text-xs font-mono text-[#ECEDEF]">
-                  {post.author.slice(0, 6)}...{post.author.slice(-4)}
-                </div>
-              </div>
-            </div>
-            <span className="px-2 py-0.5 rounded bg-[#E8A33D]/10 text-[#E8A33D] font-mono text-xs font-semibold">
-              95% Direct
+        {/* Tip Amount Input */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-[11px] font-mono text-sub">
+            <span>Tip Amount (mUSDT)</span>
+            <span>
+              Balance: {usdtBalance !== undefined ? parseFloat(formatUnits(usdtBalance, 6)).toFixed(1) : '0.0'} USDT
             </span>
           </div>
 
-          {/* Amount input */}
-          <div>
-            <label className="block text-xs font-mono text-[#8B92A3] uppercase tracking-wider mb-2">
-              Select Tip Amount (mUSDT)
-            </label>
-            
-            {/* Presets */}
-            <div className="grid grid-cols-5 gap-2 mb-3">
-              {presets.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setTipAmount(preset)}
-                  className={`py-1.5 rounded-md font-mono text-xs font-semibold transition-all border ${
-                    tipAmount === preset
-                      ? 'bg-[#E8A33D] text-[#12151C] border-[#E8A33D]'
-                      : 'bg-[#12151C] border-[#282D3B] text-[#ECEDEF] hover:border-[#E8A33D]/50'
-                  }`}
-                >
-                  ${preset}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom input */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#8B92A3]">
-                <DollarSign className="w-4 h-4" />
-              </div>
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={tipAmount}
-                onChange={(e) => setTipAmount(e.target.value)}
-                placeholder="Custom Amount"
-                className="w-full bg-[#12151C] border border-[#282D3B] focus:border-[#E8A33D] rounded-lg pl-8 pr-16 py-2.5 text-sm font-mono text-[#ECEDEF] outline-none transition-colors"
-              />
-              <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs font-mono text-[#8B92A3]">
-                mUSDT
-              </span>
-            </div>
+          <div className="relative">
+            <input
+              type="number"
+              min="0.1"
+              step="0.5"
+              value={tipAmount}
+              onChange={(e) => setTipAmount(e.target.value)}
+              className="w-full bg-base border border-line rounded-lg py-2.5 px-3 pr-16 text-lg font-mono font-bold text-main focus:outline-none focus:border-gold transition-colors"
+            />
+            <span className="absolute right-3 top-3 text-xs font-mono text-sub">
+              mUSDT
+            </span>
           </div>
 
-          {/* Value Split Breakdown */}
-          <div className="bg-[#12151C]/60 border border-[#282D3B] rounded-lg p-3 space-y-1.5 text-xs font-mono">
-            <div className="flex justify-between text-[#8B92A3]">
-              <span>Creator Allocation (95%):</span>
-              <span className="text-[#ECEDEF] font-semibold">{creatorCut} mUSDT</span>
-            </div>
-            <div className="flex justify-between text-[#8B92A3]">
-              <span>Treasury Protocol Fee (5%):</span>
-              <span className="text-[#8B92A3]">{treasuryCut} mUSDT</span>
-            </div>
-            <div className="pt-1.5 border-t border-[#282D3B] flex justify-between text-[#ECEDEF] font-bold">
-              <span>Total Tip:</span>
-              <span className="text-[#E8A33D]">{parsedAmount.toFixed(2)} mUSDT</span>
-            </div>
+          {/* Quick Presets */}
+          <div className="flex gap-1.5 pt-1">
+            {TIP_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setTipAmount(preset)}
+                className={`flex-1 py-1.5 rounded text-xs font-mono transition-colors ${
+                  tipAmount === preset
+                    ? 'bg-elevated text-gold border border-gold/40 font-semibold'
+                    : 'bg-base border border-line text-sub hover:text-main'
+                }`}
+              >
+                +{preset}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 95/5 Split Voucher Stamp */}
+        <div className="p-3.5 rounded-lg bg-base border border-line space-y-2 font-mono text-xs">
+          <div className="text-[10px] text-sub uppercase tracking-wider">
+            Smart Contract Settlement Split
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sub">Creator Share (95%):</span>
+            <strong className="text-gold font-bold">+{creatorShare} USDT</strong>
           </div>
 
-          {/* Action Button */}
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-sub">Protocol Treasury (5%):</span>
+            <span className="text-sub">+{protocolShare} USDT</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="pt-2 border-t border-line flex items-center justify-end space-x-2">
           <button
-            onClick={handleSendTip}
-            disabled={isProcessing || parsedAmount <= 0}
-            className="w-full flex items-center justify-center space-x-2 py-3 rounded-lg bg-[#E8A33D] hover:bg-[#ffb44a] text-[#12151C] font-grotesk font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#E8A33D]/20"
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-elevated border border-line text-sub hover:text-main text-xs font-medium transition-colors"
           >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-[#12151C]" />
-                <span>Confirming Tip...</span>
-              </>
-            ) : (
-              <>
-                <Heart className="w-4 h-4 fill-current" />
-                <span>Send {parsedAmount > 0 ? `${parsedAmount} mUSDT` : ''} Tip</span>
-              </>
-            )}
+            Cancel
           </button>
+
+          {!hasAllowance ? (
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={isWritePending || isWaitingTx || !isConnected || tipAmountNumber <= 0}
+              className="px-5 py-2 rounded-lg bg-gold hover:bg-gold-hover disabled:opacity-50 text-base font-semibold text-xs transition-colors flex items-center space-x-1.5"
+            >
+              {step === 'approving' && (isWritePending || isWaitingTx) ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Approving USDT...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Approve USDT</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSendTip}
+              disabled={isWritePending || isWaitingTx || !isConnected || tipAmountNumber <= 0}
+              className="px-5 py-2 rounded-lg bg-gold hover:bg-gold-hover disabled:opacity-50 text-base font-semibold text-xs transition-colors flex items-center space-x-1.5"
+            >
+              {step === 'tipping' && (isWritePending || isWaitingTx) ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Sending Tip...</span>
+                </>
+              ) : (
+                <>
+                  <Coins className="w-3.5 h-3.5" />
+                  <span>Confirm Tip ({tipAmount} USDT)</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
 
       </div>

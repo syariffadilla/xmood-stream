@@ -7,289 +7,331 @@ import Footer from '../components/Footer';
 import CreatePostModal from '../components/CreatePostModal';
 import FaucetModal from '../components/FaucetModal';
 import { useAccount, useReadContract, usePublicClient } from 'wagmi';
-import { CONTRACT_ADDRESSES, getContractAddresses, parsePostContent } from '../contracts/addresses';
+import { getContractAddresses, parsePostContent } from '../contracts/addresses';
 import { CORE_ABI, TIP_VAULT_ABI } from '../contracts/abis';
 import { formatUnits } from 'viem';
-import { Radio, ArrowRight, ShieldCheck, Coins, Sparkles, Send, Flame, MessageSquarePlus } from 'lucide-react';
+import { Radio, ArrowRight, ShieldCheck, Coins, Sparkles, Send, Layers, ExternalLink, ArrowUpRight } from 'lucide-react';
 
 export default function LandingPage() {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isFaucetOpen, setIsFaucetOpen] = useState(false);
-  const { isConnected, chain } = useAccount();
+  const { address, chain } = useAccount();
   const publicClient = usePublicClient();
   const contracts = getContractAddresses(chain?.id);
 
-  const [previewPosts, setPreviewPosts] = useState([]);
-  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isFaucetOpen, setIsFaucetOpen] = useState(false);
+  const [livePosts, setLivePosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
 
-  // Read total posts with active auto-refresh
-  const { data: totalPosts, refetch: refetchTotal } = useReadContract({
+  // Read total posts from core contract with active polling
+  const { data: totalPostsData } = useReadContract({
     address: contracts.XMoodStreamCore,
     abi: CORE_ABI,
     functionName: 'getTotalPosts',
-    query: {
-      refetchInterval: 4000,
-    },
+    query: { refetchInterval: 4000 },
   });
 
-  // Fetch latest real on-chain stream preview
+  const totalPosts = totalPostsData ? Number(totalPostsData) : 0;
+
+  // Load preview stream posts from on-chain
   useEffect(() => {
-    async function loadLatestPreview() {
-      if (!publicClient) return;
-      setLoadingPreview(true);
+    let isMounted = true;
+
+    async function loadLiveFeed() {
+      if (!publicClient || !contracts.XMoodStreamCore) return;
       try {
+        setLoadingPosts(true);
         const count = await publicClient.readContract({
           address: contracts.XMoodStreamCore,
           abi: CORE_ABI,
           functionName: 'getTotalPosts',
         });
+
         const total = Number(count);
-        const indices = [];
-        for (let i = total; i >= Math.max(1, total - 1); i--) {
-          indices.push(i);
+        if (total === 0) {
+          if (isMounted) {
+            setLivePosts([]);
+            setLoadingPosts(false);
+          }
+          return;
         }
 
-        if (indices.length > 0) {
-          const results = await Promise.all(
-            indices.map(async (postId) => {
+        const fetchCount = Math.min(total, 4);
+        const postPromises = [];
+
+        for (let i = total; i > total - fetchCount; i--) {
+          postPromises.push(
+            (async () => {
               try {
-                const [post, tipRaw] = await Promise.all([
-                  publicClient.readContract({
-                    address: contracts.XMoodStreamCore,
-                    abi: CORE_ABI,
-                    functionName: 'getPost',
-                    args: [BigInt(postId)],
-                  }),
-                  publicClient.readContract({
+                const post = await publicClient.readContract({
+                  address: contracts.XMoodStreamCore,
+                  abi: CORE_ABI,
+                  functionName: 'getPost',
+                  args: [BigInt(i)],
+                });
+
+                let tips = BigInt(0);
+                try {
+                  tips = await publicClient.readContract({
                     address: contracts.TipVault,
                     abi: TIP_VAULT_ABI,
                     functionName: 'postTips',
-                    args: [BigInt(postId)],
-                  }).catch(() => 0n),
-                ]);
+                    args: [BigInt(i)],
+                  });
+                } catch (e) {}
 
-                const parsed = parsePostContent(post.contentHash);
                 return {
                   id: Number(post.id),
                   author: post.author,
-                  content: parsed.text,
-                  mediaUrl: parsed.mediaUrl,
+                  rawContent: post.contentHash,
                   timestamp: Number(post.timestamp),
-                  tipsUsdt: parseFloat(formatUnits(tipRaw || 0n, 6)),
+                  tipsEarned: parseFloat(formatUnits(tips, 6)),
                 };
               } catch (e) {
                 return null;
               }
-            })
+            })()
           );
-          const valid = results.filter(Boolean);
-          if (valid.length > 0) {
-            setPreviewPosts(valid);
-            return;
-          }
         }
 
-        // Fallback default preview if 0 posts on chain
-        setPreviewPosts([
-          {
-            id: 1,
-            author: '0x71C86B6D199343335298539038283920193E3E2B',
-            content: 'Just deployed smart contract optimizations on BOT Chain. Gas fees reduced with instant finality! ⚡🚀',
-            timestamp: Math.floor(Date.now() / 1000) - 120,
-            tipsUsdt: 15.0,
-          },
-          {
-            id: 2,
-            author: '0xA34749281726354819203847561928374659F12',
-            content: 'The dual-token SocialFi economy on BOT Chain ($XMS gas rebates + USDT tips) empowers genuine web3 creators!',
-            timestamp: Math.floor(Date.now() / 1000) - 720,
-            tipsUsdt: 5.0,
-          },
-        ]);
+        const results = await Promise.all(postPromises);
+        if (isMounted) {
+          setLivePosts(results.filter(Boolean));
+          setLoadingPosts(false);
+        }
       } catch (err) {
-        console.warn('Preview posts fetch fallback:', err);
-      } finally {
-        setLoadingPreview(false);
+        if (isMounted) setLoadingPosts(false);
       }
     }
 
-    loadLatestPreview();
-  }, [publicClient, totalPosts, contracts.XMoodStreamCore, contracts.TipVault]);
-
-  const displayTotalPosts = totalPosts !== undefined ? totalPosts.toString() : '0';
+    loadLiveFeed();
+    const interval = setInterval(loadLiveFeed, 6000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [publicClient, contracts.XMoodStreamCore, contracts.TipVault]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6] selection:bg-[#00F5A0] selection:text-[#090C15]">
+    <div className="min-h-screen flex flex-col bg-base text-main selection:bg-gold selection:text-base">
       <Navbar
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenFaucet={() => setIsFaucetOpen(true)}
       />
 
-      <main className="flex-grow flex flex-col items-center justify-start pt-8 sm:pt-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full gap-8 sm:gap-12 pb-16">
+      <main className="flex-1">
         
         {/* Hero Section */}
-        <section className="w-full flex flex-col items-center text-center gap-4 pt-4 sm:pt-6">
-          <div className="inline-flex items-center space-x-2 bg-[#0E131F] border border-[#1E293B] px-3.5 py-1.5 rounded-full text-xs font-mono text-[#94A3B8] shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-[#00F5A0] animate-ping"></span>
-            <span className="text-[#00F5A0] font-medium">NETWORK: {contracts.chainName.toUpperCase()} ({contracts.chainId})</span>
-            <span>•</span>
-            <span>SYSTEM: ONLINE</span>
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-14 text-center">
+          
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-surface border border-line text-sub text-xs font-mono mb-6">
+            <span className="w-2 h-2 rounded-full bg-glacier animate-pulse"></span>
+            <span>Live on {contracts.chainName}</span>
           </div>
 
-          <h1 className="font-grotesk font-extrabold text-3xl sm:text-5xl lg:text-6xl text-[#F3F4F6] max-w-4xl tracking-tight leading-tight sm:leading-tight">
-            Post Updates, Get Tips in <span className="text-[#F59E0B]">USDT</span>, Earn <span className="text-[#00F5A0]">$XMS</span> Rewards
+          <h1 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-main max-w-3xl mx-auto leading-tight sm:leading-tight">
+            Verifiable micro-publishing with direct settlement.
           </h1>
 
-          <p className="font-sans text-[#94A3B8] text-sm sm:text-lg max-w-2xl mt-1 leading-relaxed">
-            The decentralized SocialFi ledger where microblogging drives direct creator tipping. 95% goes directly to creators, gas and loyalty is powered by $XMS on BOT Chain.
+          <p className="mt-4 text-base sm:text-lg text-sub max-w-2xl mx-auto leading-relaxed">
+            Every broadcast is an immutable on-chain record. Every tip splits 95% straight to the creator&apos;s wallet with non-custodial smart contract transparency.
           </p>
 
-          {/* Action CTAs */}
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-4 sm:mt-6">
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/feed"
-              className="flex items-center space-x-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-sm uppercase tracking-wider hover:opacity-95 shadow-xl shadow-[#00F5A0]/20 transition-all hover:-translate-y-0.5"
+              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-gold hover:bg-gold-hover text-base font-display font-semibold text-sm transition-colors flex items-center justify-center space-x-2"
             >
-              <Radio className="w-4 h-4 text-[#090C15]" />
-              <span>Explore Live Feed</span>
+              <Radio className="w-4 h-4" />
+              <span>Explore Live Stream</span>
             </Link>
 
             <button
-              onClick={() => setIsFaucetOpen(true)}
-              className="flex items-center space-x-2 px-6 py-3.5 rounded-xl bg-[#0E131F] border border-[#1E293B] hover:border-[#F59E0B]/50 text-[#F3F4F6] font-grotesk font-semibold text-sm transition-all hover:-translate-y-0.5"
+              onClick={() => setIsCreateOpen(true)}
+              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-surface hover:bg-elevated border border-line text-main font-display font-medium text-sm transition-colors flex items-center justify-center space-x-2"
             >
-              <Coins className="w-4 h-4 text-[#F59E0B]" />
-              <span>Get Free mUSDT</span>
+              <Send className="w-4 h-4 text-gold" />
+              <span>Broadcast Update</span>
             </button>
           </div>
 
-          <div className="mt-2 font-mono text-[11px] sm:text-xs text-[#64748B] flex flex-wrap items-center justify-center gap-2 sm:gap-4">
-            <span>VERIFIED ON-CHAIN</span>
-            <span className="hidden sm:inline">|</span>
-            <span>NON-CUSTODIAL VAULT</span>
-            <span className="hidden sm:inline">|</span>
-            <span className="text-[#00F5A0] font-bold">TOTAL POSTS: {displayTotalPosts}</span>
-          </div>
-        </section>
-
-        {/* Bento Grid: Live Preview & Protocol Mechanics */}
-        <section className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 mt-2">
-          
-          {/* Feed Preview (Left Bento) */}
-          <div className="lg:col-span-7 bg-[#0E131F] rounded-2xl p-5 sm:p-6 border border-[#1E293B] flex flex-col gap-4 shadow-xl">
-            <div className="flex justify-between items-center ledger-border-b pb-3">
-              <div className="flex items-center space-x-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#00F5A0]"></span>
-                <h2 className="font-grotesk font-bold text-base sm:text-lg text-[#F3F4F6]">
-                  Live Stream Preview
-                </h2>
+          {/* Telemetry Strip */}
+          <div className="mt-14 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto">
+            
+            <div className="p-4 rounded-lg bg-surface border border-line text-left">
+              <div className="text-[11px] font-mono text-sub uppercase">On-Chain Streams</div>
+              <div className="text-2xl font-mono font-bold text-main mt-1">
+                {totalPosts}
               </div>
-              <span className="font-mono text-xs text-[#00F5A0] flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00F5A0] animate-pulse"></span>
-                <span>SYNCED ({displayTotalPosts} On-Chain)</span>
-              </span>
             </div>
 
-            {/* Dynamic Post Cards */}
-            {previewPosts.map((p, idx) => (
-              <div
-                key={p.id || idx}
-                className={`bg-[#090C15] rounded-xl p-4 border border-[#1E293B] hover:border-[#00F5A0]/40 transition-all ${
-                  idx === 1 ? 'opacity-85 hover:opacity-100' : ''
-                }`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#0E131F] border border-[#1E293B] flex items-center justify-center font-mono text-xs font-bold text-[#00F5A0]">
-                      {p.author ? p.author.slice(2, 4).toUpperCase() : '0x'}
-                    </div>
-                    <div>
-                      <div className="font-mono text-xs font-semibold text-[#F3F4F6]">
-                        {p.author ? `${p.author.slice(0, 6)}...${p.author.slice(-4)}` : '0xCreator'}
-                      </div>
-                      <div className="font-mono text-[11px] text-[#94A3B8]">
-                        TX #{p.id} • {p.timestamp > 0 ? new Date(p.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="px-2 py-0.5 rounded-lg bg-[#F59E0B]/20 text-[#F59E0B] font-mono text-xs font-semibold border border-[#F59E0B]/30">
-                    +{p.tipsUsdt.toFixed(2)} USDT Tipped
-                  </div>
-                </div>
-                <p className="font-sans text-sm text-[#F3F4F6] my-3 leading-relaxed">
-                  {p.content}
-                </p>
-                <div className="flex items-center justify-between pt-2.5 ledger-border-t text-xs font-mono">
-                  <span className="text-[#94A3B8]">Stream #{p.id}</span>
-                  <Link
-                    href="/feed"
-                    className="flex items-center space-x-1 text-[#F59E0B] hover:underline font-semibold"
-                  >
-                    <span>Tip in USDT</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </Link>
-                </div>
+            <div className="p-4 rounded-lg bg-surface border border-line text-left">
+              <div className="text-[11px] font-mono text-sub uppercase">Creator Split</div>
+              <div className="text-2xl font-mono font-bold text-gold mt-1">
+                95%
               </div>
-            ))}
+            </div>
 
+            <div className="p-4 rounded-lg bg-surface border border-line text-left">
+              <div className="text-[11px] font-mono text-sub uppercase">Protocol Treasury</div>
+              <div className="text-2xl font-mono font-bold text-sub mt-1">
+                5%
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-surface border border-line text-left">
+              <div className="text-[11px] font-mono text-sub uppercase">Daily Activity Pool</div>
+              <div className="text-2xl font-mono font-bold text-glacier mt-1">
+                $XMS
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* Live Ledger Stream Preview */}
+        <section className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded bg-gold"></span>
+              <h2 className="font-display font-bold text-base text-main">
+                Recent On-Chain Broadcasts
+              </h2>
+            </div>
             <Link
               href="/feed"
-              className="w-full py-2.5 text-center rounded-xl bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0] text-[#F3F4F6] font-grotesk font-semibold text-xs transition-colors"
+              className="text-xs font-mono text-sub hover:text-gold flex items-center space-x-1 transition-colors"
             >
-              View Full Live Feed →
+              <span>View full feed</span>
+              <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
-          {/* Protocol Mechanics (Right Bento) */}
-          <div className="lg:col-span-5 bg-[#0E131F] rounded-2xl p-5 sm:p-6 border border-[#1E293B] flex flex-col gap-4 shadow-xl">
-            <div className="ledger-border-b pb-3">
-              <h2 className="font-grotesk font-bold text-base sm:text-lg text-[#F3F4F6] flex items-center space-x-2">
-                <ShieldCheck className="w-5 h-5 text-[#00F5A0]" />
-                <span>Protocol Mechanics</span>
-              </h2>
-            </div>
-
-            {/* Step 1 */}
-            <div className="flex gap-3.5 items-start p-4 bg-[#090C15] rounded-xl border border-[#1E293B]">
-              <div className="text-[#00F5A0] font-mono font-bold text-xl sm:text-2xl">01</div>
-              <div>
-                <h3 className="font-grotesk font-bold text-sm text-[#F3F4F6] mb-1">
-                  Post & Stream
-                </h3>
-                <p className="font-sans text-xs text-[#94A3B8] leading-relaxed">
-                  Publish alpha, mood, and insights on-chain to XMoodStreamCore.
-                </p>
+          <div className="space-y-3">
+            {loadingPosts ? (
+              <div className="p-8 rounded-lg bg-surface border border-line text-center text-sub font-mono text-xs">
+                Synchronizing with {contracts.chainName} ledger...
               </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex gap-3.5 items-start p-4 bg-[#090C15] rounded-xl border border-[#1E293B]">
-              <div className="text-[#F59E0B] font-mono font-bold text-xl sm:text-2xl">02</div>
-              <div>
-                <h3 className="font-grotesk font-bold text-sm text-[#F3F4F6] mb-1">
-                  Direct USDT Tipping
-                </h3>
-                <p className="font-sans text-xs text-[#94A3B8] leading-relaxed">
-                  Peers tip your post in mUSDT via TipVault. 95% goes directly to your wallet.
-                </p>
+            ) : livePosts.length === 0 ? (
+              <div className="p-8 rounded-lg bg-surface border border-line text-center space-y-2">
+                <p className="text-main font-medium text-sm">No broadcasts found on this network yet.</p>
+                <p className="text-sub text-xs">Be the first to publish an on-chain update to initialize the feed.</p>
+                <button
+                  onClick={() => setIsCreateOpen(true)}
+                  className="mt-3 px-4 py-2 rounded-lg bg-gold hover:bg-gold-hover text-base font-semibold text-xs transition-colors"
+                >
+                  Publish First Broadcast
+                </button>
               </div>
-            </div>
+            ) : (
+              livePosts.map((post) => {
+                const parsed = parsePostContent(post.rawContent);
+                return (
+                  <div
+                    key={post.id}
+                    className="p-4 rounded-lg bg-surface border border-line hover:border-sub/40 transition-colors"
+                  >
+                    {/* Header: Author & Settlement Badge */}
+                    <div className="flex items-center justify-between text-xs font-mono mb-2">
+                      <span className="text-sub">
+                        {post.author.slice(0, 6)}...{post.author.slice(-4)}
+                      </span>
+                      {post.tipsEarned > 0 && (
+                        <span className="px-2 py-0.5 rounded bg-gold/10 border border-gold/30 text-gold font-medium text-[11px]">
+                          +{post.tipsEarned.toFixed(2)} USDT Tipped
+                        </span>
+                      )}
+                    </div>
 
-            {/* Step 3 */}
-            <div className="flex gap-3.5 items-start p-4 bg-[#090C15] rounded-xl border border-[#1E293B]">
-              <div className="text-[#00F5A0] font-mono font-bold text-xl sm:text-2xl">03</div>
-              <div>
-                <h3 className="font-grotesk font-bold text-sm text-[#F3F4F6] mb-1">
-                  Earn $XMS Rewards
-                </h3>
-                <p className="font-sans text-xs text-[#94A3B8] leading-relaxed">
-                  Claim $XMS reward tokens every 24h for active posting and receiving tips.
-                </p>
+                    {/* Tag + Text */}
+                    {parsed.tag && (
+                      <span className="inline-block text-[11px] font-mono text-glacier font-medium mb-1">
+                        {parsed.tag}
+                      </span>
+                    )}
+                    <p className="text-sm text-main leading-relaxed">
+                      {parsed.text}
+                    </p>
+
+                    {/* Media if present */}
+                    {parsed.imageUrl && (
+                      <div className="mt-3 rounded border border-line overflow-hidden max-h-56 bg-base">
+                        <img
+                          src={parsed.imageUrl}
+                          alt="Stream attachment"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {/* Footer: Stream index & explorer */}
+                    <div className="mt-3 pt-2.5 border-t border-line flex items-center justify-between text-[11px] font-mono text-sub">
+                      <span>Stream Entry #{post.id}</span>
+                      <Link
+                        href="/feed"
+                        className="text-sub hover:text-gold flex items-center space-x-1"
+                      >
+                        <span>Tip Author</span>
+                        <ArrowUpRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+        </section>
+
+        {/* Core Protocol Principles */}
+        <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-14 border-t border-line">
+          
+          <div className="text-center max-w-xl mx-auto mb-10">
+            <h2 className="font-display text-xl sm:text-2xl font-bold text-main">
+              Engineered for Financial Fidelity
+            </h2>
+            <p className="mt-2 text-sub text-xs sm:text-sm">
+              Social platforms lock value behind advertising networks. X-Mood Stream connects creators and patrons directly.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            
+            <div className="p-5 rounded-lg bg-surface border border-line space-y-2">
+              <div className="w-8 h-8 rounded bg-elevated border border-line flex items-center justify-center text-gold font-mono font-bold text-sm">
+                01
               </div>
+              <h3 className="font-display font-semibold text-sm text-main">
+                Immutable Micro-Publishing
+              </h3>
+              <p className="text-sub text-xs leading-relaxed">
+                Posts are written directly to <code className="text-main font-mono text-[11px]">XMoodStreamCore.sol</code> without centralized hosting intermediaries.
+              </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-[#090C15]/90 border border-[#1E293B] text-[11px] font-mono text-[#94A3B8]">
-              <strong className="text-[#F3F4F6]">{contracts.chainName} Chain ID:</strong> {contracts.chainId} | Nonce-enforced
+            <div className="p-5 rounded-lg bg-surface border border-line space-y-2">
+              <div className="w-8 h-8 rounded bg-elevated border border-line flex items-center justify-center text-gold font-mono font-bold text-sm">
+                02
+              </div>
+              <h3 className="font-display font-semibold text-sm text-main">
+                95% Direct Vault Routing
+              </h3>
+              <p className="text-sub text-xs leading-relaxed">
+                Tipping invokes <code className="text-main font-mono text-[11px]">TipVault.sol</code>, transferring 95% of mUSDT straight to author balance and 5% to treasury.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-lg bg-surface border border-line space-y-2">
+              <div className="w-8 h-8 rounded bg-elevated border border-line flex items-center justify-center text-glacier font-mono font-bold text-sm">
+                03
+              </div>
+              <h3 className="font-display font-semibold text-sm text-main">
+                24h Activity Distribution
+              </h3>
+              <p className="text-sub text-xs leading-relaxed">
+                Active creators claim daily $XMS rewards via <code className="text-main font-mono text-[11px]">RewardDistributor.sol</code> based on post volume and tip engagement.
+              </p>
             </div>
 
           </div>
@@ -304,12 +346,8 @@ export default function LandingPage() {
       <CreatePostModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onPostCreated={() => {
-          setTimeout(() => {
-            refetchTotal();
-          }, 3500);
-        }}
       />
+
       <FaucetModal
         isOpen={isFaucetOpen}
         onClose={() => setIsFaucetOpen(false)}

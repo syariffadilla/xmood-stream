@@ -6,128 +6,59 @@ import Footer from '../../components/Footer';
 import CreatePostModal from '../../components/CreatePostModal';
 import TipModal from '../../components/TipModal';
 import FaucetModal from '../../components/FaucetModal';
-import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
-import { CONTRACT_ADDRESSES, getContractAddresses, parsePostContent } from '../../contracts/addresses';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
+import { getContractAddresses, parsePostContent } from '../../contracts/addresses';
 import { CORE_ABI, TIP_VAULT_ABI } from '../../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { 
-  Radio, 
-  Flame, 
-  Sparkles, 
-  Heart, 
-  Send, 
-  RefreshCw, 
-  Layers, 
-  Coins, 
-  ShieldCheck, 
+import {
+  Radio,
+  Send,
+  Coins,
+  RefreshCw,
   ExternalLink,
-  Loader2,
-  Image as ImageIcon,
-  MessageSquarePlus,
-  Share2,
-  Zap,
-  TrendingUp,
   Tag,
-  Upload,
-  Trash2,
-  Link as LinkIcon,
-  X
+  Image as ImageIcon,
+  MessageSquare,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  Share2,
 } from 'lucide-react';
 
-const CATEGORY_TABS = [
-  { id: 'all', label: '⚡ All Streams' },
-  { id: '#Alpha', label: '🚀 Alpha' },
-  { id: '#DePIN', label: '🤖 DePIN & AI' },
-  { id: '#DeFi', label: '📈 DeFi' },
-  { id: '#NFT', label: '🎨 NFT & Art' },
-  { id: '#Meme', label: '🔥 Memes' },
-];
+const CATEGORIES = ['All', '#Alpha', '#DePIN', '#DeFi', '#NFT', '#SocialFi', '#Meme'];
 
 export default function FeedPage() {
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedPostForTip, setSelectedPostForTip] = useState(null);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isFaucetOpen, setIsFaucetOpen] = useState(false);
-  const [quickContent, setQuickContent] = useState('');
-  const [quickMedia, setQuickMedia] = useState('');
-  const [quickMediaType, setQuickMediaType] = useState('upload'); // 'upload' | 'url'
-  const [showQuickMedia, setShowQuickMedia] = useState(false);
-  const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const fileInputRef = React.useRef(null);
-
-  const handleImageFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file (PNG, JPG, WEBP, GIF)');
-      return;
-    }
-
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('Image size must be under 8MB');
-      return;
-    }
-
-    toast.loading('Optimizing image for on-chain broadcast...', { id: 'image-upload' });
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 640;
-        const MAX_HEIGHT = 640;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width = Math.round((width * MAX_HEIGHT) / height);
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
-        setQuickMedia(dataUrl);
-        toast.success('📸 Image attached and optimized!', { id: 'image-upload' });
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const publicClient = usePublicClient();
   const { address, isConnected, chain } = useAccount();
-  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
   const contracts = getContractAddresses(chain?.id);
 
-  // Read total posts count with auto refetch
-  const { data: totalPostsCount } = useReadContract({
-    address: contracts.XMoodStreamCore,
-    abi: CORE_ABI,
-    functionName: 'getTotalPosts',
-    query: {
-      refetchInterval: 4000,
-    },
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isTipOpen, setIsTipOpen] = useState(false);
+  const [isFaucetOpen, setIsFaucetOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [activeCategory, setActiveCategory] = useState('All');
+
+  // Inline Quick Post state
+  const [quickContent, setQuickContent] = useState('');
+  const [quickCategory, setQuickCategory] = useState('#Alpha');
+  const [quickImageUrl, setQuickImageUrl] = useState('');
+  const [showImageInput, setShowImageInput] = useState(false);
+
+  // Feed items state
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Wagmi write hook for quick posting
+  const { data: writeHash, writeContract, isPending: isWritePending } = useWriteContract();
+  const { isLoading: isTxWaiting, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
+    hash: writeHash,
   });
 
-  // Parallel fetcher
-  const fetchPostsFromChain = useCallback(async () => {
-    if (!publicClient) return;
-    setLoading(true);
+  // Fetch real on-chain posts
+  const fetchPosts = useCallback(async () => {
+    if (!publicClient || !contracts.XMoodStreamCore) return;
     try {
       const count = await publicClient.readContract({
         address: contracts.XMoodStreamCore,
@@ -136,389 +67,356 @@ export default function FeedPage() {
       });
 
       const total = Number(count);
-      const postIndices = [];
-      for (let i = total; i >= 1; i--) {
-        postIndices.push(i);
+      if (total === 0) {
+        setPosts([]);
+        setLoading(false);
+        setIsRefreshing(false);
+        return;
       }
 
-      const fetchedResults = await Promise.all(
-        postIndices.map(async (i) => {
-          try {
-            const [post, postTipAmount] = await Promise.all([
-              publicClient.readContract({
+      const postPromises = [];
+      for (let i = total; i >= 1; i--) {
+        postPromises.push(
+          (async () => {
+            try {
+              const post = await publicClient.readContract({
                 address: contracts.XMoodStreamCore,
                 abi: CORE_ABI,
                 functionName: 'getPost',
                 args: [BigInt(i)],
-              }),
-              publicClient.readContract({
-                address: contracts.TipVault,
-                abi: TIP_VAULT_ABI,
-                functionName: 'postTips',
-                args: [BigInt(i)],
-              }).catch(() => 0n),
-            ]);
+              });
 
-            const parsed = parsePostContent(post.contentHash);
+              let tips = BigInt(0);
+              try {
+                tips = await publicClient.readContract({
+                  address: contracts.TipVault,
+                  abi: TIP_VAULT_ABI,
+                  functionName: 'postTips',
+                  args: [BigInt(i)],
+                });
+              } catch (e) {}
 
-            return {
-              id: Number(post.id),
-              author: post.author.toLowerCase(),
-              rawContent: post.contentHash,
-              content: parsed.text,
-              mediaUrl: parsed.mediaUrl,
-              timestamp: Number(post.timestamp),
-              tipsUsdt: parseFloat(formatUnits(postTipAmount || 0n, 6)),
-              isGenesis: false,
-            };
-          } catch (e) {
-            return null;
-          }
-        })
-      );
+              return {
+                id: Number(post.id),
+                author: post.author,
+                rawContent: post.contentHash,
+                timestamp: Number(post.timestamp),
+                tipsEarned: parseFloat(formatUnits(tips, 6)),
+              };
+            } catch (e) {
+              return null;
+            }
+          })()
+        );
+      }
 
-      const validPosts = fetchedResults.filter(Boolean);
-      setPosts(validPosts);
+      const results = await Promise.all(postPromises);
+      setPosts(results.filter(Boolean));
     } catch (err) {
-      console.error('Failed to load posts:', err);
+      console.error('Failed to query stream:', err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }, [publicClient, contracts.XMoodStreamCore, contracts.TipVault]);
 
   useEffect(() => {
-    fetchPostsFromChain();
-  }, [fetchPostsFromChain, totalPostsCount]);
-    fetchPostsFromChain();
-  }, [fetchPostsFromChain, totalPostsCount]);
+    fetchPosts();
+    const interval = setInterval(fetchPosts, 6000);
+    return () => clearInterval(interval);
+  }, [fetchPosts]);
 
-  const handleQuickBroadcast = async (e) => {
-    e.preventDefault();
-    if (!address) {
-      toast.error('Please connect your wallet first');
+  // Handle Quick Post Submit
+  const handleQuickPost = () => {
+    if (!isConnected) {
+      toast.error('Connect your wallet first');
       return;
     }
     if (!quickContent.trim()) {
-      toast.error('Please write something to broadcast');
+      toast.error('Write a message to broadcast');
       return;
     }
 
-    let finalPayload = quickContent.trim();
-    if (quickMedia.trim()) {
-      finalPayload = `${finalPayload} [media:${quickMedia.trim()}]`;
+    let payload = `${quickCategory} ${quickContent.trim()}`;
+    if (quickImageUrl.trim()) {
+      payload += ` [media:${quickImageUrl.trim()}]`;
     }
 
-    setIsBroadcasting(true);
-    try {
-      toast.loading('Broadcasting to BOT Chain...', { id: 'quick-broadcast' });
-
-      await writeContractAsync({
-        address: contracts.XMoodStreamCore,
-        abi: CORE_ABI,
-        functionName: 'createPost',
-        args: [finalPayload],
-      });
-
-      toast.loading('Mining transaction on-chain...', { id: 'quick-broadcast' });
-      await new Promise((r) => setTimeout(r, 3500));
-
-      toast.success('🎉 Update broadcasted to ledger successfully! (+10 $XMS)', { id: 'quick-broadcast' });
-      setQuickContent('');
-      setQuickMedia('');
-      setShowQuickMedia(false);
-      fetchPostsFromChain();
-    } catch (err) {
-      console.error(err);
-      toast.error(err.shortMessage || err.message || 'Broadcast failed', { id: 'quick-broadcast' });
-    } finally {
-      setIsBroadcasting(false);
-    }
+    writeContract({
+      address: contracts.XMoodStreamCore,
+      abi: CORE_ABI,
+      functionName: 'createPost',
+      args: [payload],
+    });
   };
 
-  // Filter posts by category tag
+  useEffect(() => {
+    if (isTxSuccess) {
+      toast.success('Broadcasted to on-chain ledger');
+      setQuickContent('');
+      setQuickImageUrl('');
+      setShowImageInput(false);
+      fetchPosts();
+    }
+  }, [isTxSuccess, fetchPosts]);
+
+  const handleOpenTip = (post) => {
+    setSelectedPost(post);
+    setIsTipOpen(true);
+  };
+
+  // Filter posts
   const filteredPosts = posts.filter((post) => {
-    if (activeCategory === 'all') return true;
-    return post.rawContent?.includes(activeCategory);
+    if (activeCategory === 'All') return true;
+    const parsed = parsePostContent(post.rawContent);
+    return parsed.tag.toLowerCase() === activeCategory.toLowerCase();
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6]">
+    <div className="min-h-screen flex flex-col bg-base text-main selection:bg-gold selection:text-base">
       <Navbar
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenFaucet={() => setIsFaucetOpen(true)}
       />
 
-      <main className="flex-grow max-w-4xl mx-auto px-4 sm:px-6 w-full py-6 sm:py-8 space-y-6">
+      <main className="flex-1 max-w-2xl w-full mx-auto px-4 sm:px-6 py-8">
         
-        {/* Quick Creator Studio Card */}
-        <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl p-5 shadow-xl">
-          <div className="flex items-start space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center font-mono font-bold text-sm text-[#090C15] shrink-0 shadow-lg shadow-[#00F5A0]/20">
-              {address ? address.slice(2, 4).toUpperCase() : 'X'}
-            </div>
-
-            <form onSubmit={handleQuickBroadcast} className="flex-grow space-y-3">
-              <textarea
-                rows={2}
-                value={quickContent}
-                onChange={(e) => setQuickContent(e.target.value)}
-                placeholder="What's your mood or alpha? Broadcast directly to the BOT Chain ledger..."
-                className="w-full bg-[#090C15] border border-[#1E293B] focus:border-[#00F5A0] rounded-xl p-3 text-sm text-[#F3F4F6] placeholder-[#64748B] outline-none transition-colors resize-none font-sans"
-                maxLength={280}
-              />
-
-              {showQuickMedia && (
-                <div className="p-3.5 bg-[#090C15] border border-[#1E293B] rounded-xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1.5 bg-[#0E131F] p-1 rounded-lg border border-[#1E293B] text-[11px] font-mono">
-                      <button
-                        type="button"
-                        onClick={() => setQuickMediaType('upload')}
-                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
-                          quickMediaType === 'upload'
-                            ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
-                            : 'text-[#94A3B8] hover:text-[#F3F4F6]'
-                        }`}
-                      >
-                        <Upload className="w-3 h-3" />
-                        <span>Upload File</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setQuickMediaType('url')}
-                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
-                          quickMediaType === 'url'
-                            ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
-                            : 'text-[#94A3B8] hover:text-[#F3F4F6]'
-                        }`}
-                      >
-                        <LinkIcon className="w-3 h-3" />
-                        <span>Image URL</span>
-                      </button>
-                    </div>
-
-                    {quickMedia && (
-                      <button
-                        type="button"
-                        onClick={() => setQuickMedia('')}
-                        className="text-red-400 hover:text-red-300 text-xs font-mono flex items-center space-x-1 p-1 hover:bg-red-500/10 rounded-md transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Remove</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {quickMediaType === 'upload' ? (
-                    <div>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        onChange={handleImageFileUpload}
-                        className="hidden"
-                      />
-                      {!quickMedia ? (
-                        <div
-                          onClick={() => fileInputRef.current?.click()}
-                          className="border-2 border-dashed border-[#1E293B] hover:border-[#00F5A0]/60 rounded-xl p-4 text-center cursor-pointer transition-colors bg-[#0E131F]/50 group"
-                        >
-                          <Upload className="w-6 h-6 text-[#94A3B8] group-hover:text-[#00F5A0] mx-auto mb-1.5 transition-colors" />
-                          <p className="text-xs font-medium text-[#F3F4F6]">
-                            Click to browse image from device / gallery
-                          </p>
-                          <p className="text-[10px] font-mono text-[#64748B] mt-0.5">
-                            PNG, JPG, WEBP, GIF (Auto-optimized for on-chain)
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <input
-                      type="url"
-                      value={quickMedia}
-                      onChange={(e) => setQuickMedia(e.target.value)}
-                      placeholder="Paste Image URL (e.g. Unsplash, IPFS, Imgur, GIF)..."
-                      className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-2 text-xs font-mono text-[#F3F4F6] outline-none"
-                    />
-                  )}
-
-                  {quickMedia && (
-                    <div className="relative rounded-xl overflow-hidden border border-[#1E293B] max-h-48 bg-black/40">
-                      <img
-                        src={quickMedia}
-                        alt="Preview"
-                        className="w-full h-48 object-cover"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-1">
-                <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowQuickMedia(!showQuickMedia)}
-                    className="flex items-center space-x-1 text-xs font-mono text-[#94A3B8] hover:text-[#00F5A0] transition-colors p-1.5 rounded-lg hover:bg-[#182032]"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5 text-[#00F5A0]" />
-                    <span>{showQuickMedia ? 'Close Media' : (quickMedia ? 'Change Image' : 'Attach Image')}</span>
-                  </button>
-                  <span className="text-[11px] font-mono text-[#00F5A0] hidden sm:inline">
-                    • Earns 10 $XMS
-                  </span>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isBroadcasting || !quickContent.trim() || !isConnected}
-                  className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-[#00F5A0]/20 transition-all hover:scale-[1.02]"
-                >
-                  {isBroadcasting ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#090C15]" />
-                      <span>Broadcasting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5 text-[#090C15]" />
-                      <span>Broadcast</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        {/* Category Filter Tabs & Refresh */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0E131F] border border-[#1E293B] p-2 rounded-2xl">
-          <div className="flex flex-wrap gap-1">
-            {CATEGORY_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveCategory(tab.id)}
-                className={`px-3 py-1.5 rounded-xl font-mono text-xs transition-all ${
-                  activeCategory === tab.id
-                    ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-md shadow-[#00F5A0]/20'
-                    : 'text-[#94A3B8] hover:text-[#F3F4F6] hover:bg-[#182032]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        {/* Header Telemetry */}
+        <div className="flex items-center justify-between pb-6 border-b border-line">
+          <div>
+            <h1 className="font-display font-bold text-xl sm:text-2xl text-main">
+              Stream Feed
+            </h1>
+            <p className="text-sub text-xs mt-0.5">
+              Live immutable stream on <span className="font-mono text-main">{contracts.chainName}</span>
+            </p>
           </div>
 
           <button
-            onClick={fetchPostsFromChain}
-            className="p-2 rounded-xl bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/50 text-[#94A3B8] hover:text-[#00F5A0] transition-colors"
-            title="Refresh feed"
+            onClick={() => {
+              setIsRefreshing(true);
+              fetchPosts();
+            }}
+            disabled={isRefreshing}
+            className="p-2 rounded-lg bg-surface hover:bg-elevated border border-line text-sub hover:text-main transition-colors flex items-center space-x-1.5 text-xs font-mono"
+            title="Refresh stream from RPC"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-gold' : ''}`} />
+            <span className="hidden sm:inline">Sync</span>
           </button>
         </div>
 
-        {/* Feed List */}
-        {loading && posts.length === 0 ? (
-          <div className="py-16 text-center space-y-3">
-            <div className="w-8 h-8 border-2 border-[#00F5A0] border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-xs font-mono text-[#94A3B8]">
-              Loading verified streams from {contracts.chainName}...
-            </p>
+        {/* Inline Quick Broadcast Box */}
+        <div className="mt-6 p-4 rounded-xl bg-surface border border-line space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-display font-semibold text-main">New Broadcast</span>
+            <span className="font-mono text-[11px] text-sub">95% Tip Routing</span>
           </div>
-        ) : filteredPosts.length === 0 ? (
-          <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl p-12 text-center space-y-3">
-            <Layers className="w-10 h-10 text-[#64748B] mx-auto opacity-50" />
-            <h3 className="font-grotesk font-bold text-base text-[#F3F4F6]">
-              No streams in this category yet
-            </h3>
-            <p className="text-xs text-[#94A3B8] max-w-sm mx-auto">
-              Be the first creator to broadcast in this category and earn $XMS rewards!
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredPosts.map((post) => (
-              <article
-                key={post.id}
-                className="bg-[#0E131F] border border-[#1E293B] hover:border-[#00F5A0]/40 rounded-2xl p-5 shadow-xl transition-all space-y-3.5 group"
+
+          <textarea
+            value={quickContent}
+            onChange={(e) => setQuickContent(e.target.value)}
+            placeholder="Share an insight, market alpha, or project update..."
+            rows={3}
+            maxLength={280}
+            className="w-full bg-base border border-line rounded-lg p-3 text-xs sm:text-sm text-main placeholder-sub/60 focus:outline-none focus:border-gold transition-colors resize-none"
+          />
+
+          {showImageInput && (
+            <input
+              type="url"
+              value={quickImageUrl}
+              onChange={(e) => setQuickImageUrl(e.target.value)}
+              placeholder="Paste direct image URL (https://...)"
+              className="w-full bg-base border border-line rounded-lg px-3 py-2 text-xs text-main placeholder-sub/60 focus:outline-none focus:border-gold font-mono"
+            />
+          )}
+
+          {/* Quick Category Tags + Actions */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div className="flex items-center space-x-1.5 overflow-x-auto py-1">
+              {['#Alpha', '#DePIN', '#DeFi', '#NFT', '#SocialFi', '#Meme'].map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setQuickCategory(cat)}
+                  className={`px-2 py-1 rounded text-[11px] font-mono transition-colors ${
+                    quickCategory === cat
+                      ? 'bg-elevated text-gold border border-gold/40 font-semibold'
+                      : 'text-sub hover:text-main hover:bg-elevated'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => setShowImageInput(!showImageInput)}
+                className={`p-1.5 rounded bg-elevated border border-line transition-colors ${
+                  showImageInput || quickImageUrl ? 'text-gold' : 'text-sub hover:text-main'
+                }`}
+                title="Attach Image URL"
               >
-                {/* Creator Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#00F5A0] to-[#6366F1] flex items-center justify-center font-mono font-bold text-xs text-[#090C15] shadow-sm">
-                      {post.author.slice(2, 4).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-xs sm:text-sm font-bold text-[#F3F4F6]">
-                          {post.author.slice(0, 6)}...{post.author.slice(-4)}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-[#00F5A0]/10 text-[#00F5A0] text-[10px] font-mono font-semibold border border-[#00F5A0]/20">
-                          Creator
-                        </span>
-                      </div>
-                      <div className="text-[11px] font-mono text-[#64748B]">
-                        TX #{post.id} • {post.timestamp > 0 ? new Date(post.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live'}
-                      </div>
-                    </div>
-                  </div>
+                <ImageIcon className="w-3.5 h-3.5" />
+              </button>
 
-                  {/* Total Tipped Pill */}
-                  <div className="px-2.5 py-1 rounded-xl bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30 font-mono text-xs font-bold flex items-center space-x-1">
-                    <Heart className="w-3.5 h-3.5 fill-current text-[#F59E0B]" />
-                    <span>+{post.tipsUsdt.toFixed(1)} USDT</span>
-                  </div>
-                </div>
-
-                {/* Content Message */}
-                <p className="text-sm font-sans text-[#F3F4F6] leading-relaxed whitespace-pre-wrap">
-                  {post.content}
-                </p>
-
-                {/* Attached Image / Media Banner (if present) */}
-                {post.mediaUrl && (
-                  <div className="rounded-xl overflow-hidden border border-[#1E293B] max-h-80 bg-[#090C15]">
-                    <img
-                      src={post.mediaUrl}
-                      alt="Stream media"
-                      className="w-full h-auto max-h-80 object-cover group-hover:scale-[1.01] transition-transform duration-300"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                  </div>
+              <button
+                type="button"
+                onClick={handleQuickPost}
+                disabled={isWritePending || isTxWaiting || !quickContent.trim()}
+                className="px-4 py-1.5 rounded-lg bg-gold hover:bg-gold-hover disabled:opacity-50 text-base font-semibold text-xs transition-colors flex items-center space-x-1.5"
+              >
+                {isWritePending || isTxWaiting ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Broadcasting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3 h-3" />
+                    <span>Broadcast</span>
+                  </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
 
-                {/* Action Bar: Tip Creator Button & Details */}
-                <div className="flex items-center justify-between pt-3 border-t border-[#1E293B] text-xs font-mono">
-                  <div className="flex items-center space-x-3 text-[#64748B]">
-                    <span>95% Creator Split</span>
-                    <span>•</span>
-                    <a
-                      href={`${contracts.explorer}/address/${post.author}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[#94A3B8] hover:text-[#00F5A0] flex items-center space-x-1 transition-colors"
-                    >
-                      <span>Explorer</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
+        {/* Stream Filter Pills */}
+        <div className="mt-6 flex items-center space-x-1.5 overflow-x-auto pb-2">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors shrink-0 ${
+                activeCategory === cat
+                  ? 'bg-surface text-main font-semibold border border-line'
+                  : 'text-sub hover:text-main hover:bg-surface/50'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Stream Feed Entries */}
+        <div className="mt-4 space-y-4">
+          {loading ? (
+            <div className="p-12 rounded-xl bg-surface border border-line text-center text-sub font-mono text-xs">
+              Synchronizing broadcasts from {contracts.chainName}...
+            </div>
+          ) : filteredPosts.length === 0 ? (
+            <div className="p-12 rounded-xl bg-surface border border-line text-center space-y-3">
+              <p className="text-main font-semibold text-sm">
+                No broadcasts found in category &quot;{activeCategory}&quot;
+              </p>
+              <p className="text-sub text-xs max-w-sm mx-auto">
+                Write a broadcast using the studio above to create the first on-chain record for this tag.
+              </p>
+              {activeCategory !== 'All' && (
+                <button
+                  onClick={() => setActiveCategory('All')}
+                  className="px-3 py-1.5 rounded-lg bg-elevated border border-line text-main text-xs font-mono hover:bg-line transition-colors"
+                >
+                  View All Broadcasts
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredPosts.map((post) => {
+              const parsed = parsePostContent(post.rawContent);
+              const postDate = new Date(post.timestamp * 1000);
+              const timeAgo = postDate.toLocaleDateString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+
+              return (
+                <article
+                  key={post.id}
+                  className="p-5 rounded-xl bg-surface border border-line hover:border-sub/30 transition-colors space-y-3"
+                >
+                  {/* Card Header: Author, Timestamp, and Tip Badge */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-7 h-7 rounded-full bg-elevated border border-line flex items-center justify-center text-[10px] font-mono font-bold text-main">
+                        {post.author.slice(2, 4).toUpperCase()}
+                      </div>
+                      <div>
+                        <a
+                          href={`${contracts.explorer}/address/${post.author}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono text-xs text-main hover:text-gold flex items-center space-x-1"
+                        >
+                          <span>{post.author.slice(0, 6)}...{post.author.slice(-4)}</span>
+                          <ExternalLink className="w-3 h-3 text-sub" />
+                        </a>
+                        <div className="text-[10px] font-mono text-sub">
+                          {timeAgo} • Entry #{post.id}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Signature Settlement Voucher Stamp */}
+                    {post.tipsEarned > 0 && (
+                      <div className="px-2.5 py-1 rounded bg-gold/10 border border-gold/30 flex items-center space-x-1.5 text-right font-mono">
+                        <span className="text-[10px] text-sub uppercase">Tipped:</span>
+                        <span className="text-xs font-bold text-gold">
+                          +{post.tipsEarned.toFixed(2)} USDT
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  <button
-                    onClick={() => setSelectedPostForTip(post)}
-                    className="flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-[#F59E0B]/10 hover:bg-[#F59E0B] text-[#F59E0B] hover:text-[#090C15] border border-[#F59E0B]/40 font-grotesk font-bold text-xs uppercase tracking-wider transition-all shadow-sm"
-                  >
-                    <Zap className="w-3.5 h-3.5 fill-current" />
-                    <span>Tip USDT</span>
-                  </button>
-                </div>
+                  {/* Body Content */}
+                  <div className="space-y-2">
+                    {parsed.tag && (
+                      <span className="inline-block px-2 py-0.5 rounded bg-elevated border border-line text-glacier text-[11px] font-mono font-medium">
+                        {parsed.tag}
+                      </span>
+                    )}
+                    <p className="text-sm text-main leading-relaxed whitespace-pre-line">
+                      {parsed.text}
+                    </p>
+                  </div>
 
-              </article>
-            ))}
-          </div>
-        )}
+                  {/* Media Attachment */}
+                  {parsed.imageUrl && (
+                    <div className="rounded-lg border border-line overflow-hidden max-h-72 bg-base">
+                      <img
+                        src={parsed.imageUrl}
+                        alt="Stream attachment"
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
+                  {/* Card Footer Actions */}
+                  <div className="pt-3 border-t border-line flex items-center justify-between text-xs font-mono text-sub">
+                    <span className="text-[11px]">
+                      Vault: 95% Creator / 5% Protocol
+                    </span>
+
+                    <button
+                      onClick={() => handleOpenTip(post)}
+                      className="px-3 py-1.5 rounded-lg bg-elevated hover:bg-gold hover:text-base border border-line text-main text-xs font-mono transition-colors flex items-center space-x-1.5"
+                    >
+                      <Coins className="w-3.5 h-3.5 text-gold" />
+                      <span>Tip USDT</span>
+                    </button>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
 
       </main>
 
@@ -527,15 +425,19 @@ export default function FeedPage() {
       {/* Modals */}
       <CreatePostModal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onPostCreated={fetchPostsFromChain}
+        onClose={() => {
+          setIsCreateOpen(false);
+          fetchPosts();
+        }}
       />
 
       <TipModal
-        isOpen={!!selectedPostForTip}
-        onClose={() => setSelectedPostForTip(null)}
-        post={selectedPostForTip || {}}
-        onTipSuccess={fetchPostsFromChain}
+        isOpen={isTipOpen}
+        onClose={() => {
+          setIsTipOpen(false);
+          fetchPosts();
+        }}
+        post={selectedPost}
       />
 
       <FaucetModal

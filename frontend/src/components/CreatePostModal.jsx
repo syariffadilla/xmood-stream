@@ -1,348 +1,220 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { CONTRACT_ADDRESSES, getContractAddresses } from '../contracts/addresses';
-import { CORE_ABI, REWARD_TOKEN_ABI } from '../contracts/abis';
-import { formatUnits } from 'viem';
+import React, { useState, useEffect } from 'react';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { getContractAddresses } from '../contracts/addresses';
+import { CORE_ABI } from '../contracts/abis';
 import toast from 'react-hot-toast';
-import { 
-  X, 
-  Send, 
-  Sparkles, 
-  AlertCircle, 
-  Loader2, 
-  Image as ImageIcon, 
-  Tag, 
-  Smile, 
-  Check, 
-  Zap,
-  Globe,
-  Upload,
-  Trash2,
-  Link as LinkIcon
-} from 'lucide-react';
+import { X, Send, Image as ImageIcon, Loader2, AlertCircle, Trash2 } from 'lucide-react';
 
-const MOOD_CATEGORIES = [
-  { id: 'alpha', label: '🚀 Alpha', tag: '#Alpha' },
-  { id: 'depin', label: '🤖 AI & DePIN', tag: '#DePIN' },
-  { id: 'defi', label: '📈 DeFi & Yield', tag: '#DeFi' },
-  { id: 'nft', label: '🎨 NFT & Art', tag: '#NFT' },
-  { id: 'meme', label: '🔥 Meme', tag: '#Meme' },
-  { id: 'general', label: '💬 General', tag: '#SocialFi' },
+const CATEGORIES = [
+  { id: 'alpha', label: 'Alpha', tag: '#Alpha' },
+  { id: 'depin', label: 'AI & DePIN', tag: '#DePIN' },
+  { id: 'defi', label: 'DeFi & Yield', tag: '#DeFi' },
+  { id: 'nft', label: 'NFT & Digital Art', tag: '#NFT' },
+  { id: 'socialfi', label: 'SocialFi', tag: '#SocialFi' },
+  { id: 'meme', label: 'Meme & Community', tag: '#Meme' },
 ];
 
-export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
-  const [content, setContent] = useState('');
-  const [mediaUrl, setMediaUrl] = useState('');
-  const [mediaType, setMediaType] = useState('upload'); // 'upload' | 'url'
-  const [showMediaInput, setShowMediaInput] = useState(false);
-  const [selectedTag, setSelectedTag] = useState('alpha');
+export default function CreatePostModal({ isOpen, onClose }) {
   const { address, isConnected, chain } = useAccount();
   const contracts = getContractAddresses(chain?.id);
-  const fileInputRef = React.useRef(null);
 
-  const handleImageFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const [content, setContent] = useState('');
+  const [selectedTag, setSelectedTag] = useState('#Alpha');
+  const [imageUrl, setImageUrl] = useState('');
+  const [showImageInput, setShowImageInput] = useState(false);
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file (PNG, JPG, WEBP, GIF)');
-      return;
+  const { data: hash, writeContract, isPending, error: writeError, reset } = useWriteContract();
+  const { isLoading: isWaiting, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  useEffect(() => {
+    if (isSuccess) {
+      toast.success('Broadcasted to on-chain ledger');
+      setContent('');
+      setImageUrl('');
+      setShowImageInput(false);
+      reset();
+      onClose();
     }
+  }, [isSuccess, onClose, reset]);
 
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error('Image size must be under 8MB');
-      return;
+  useEffect(() => {
+    if (writeError) {
+      toast.error(writeError.shortMessage || 'Failed to submit broadcast');
     }
-
-    toast.loading('Optimizing image for on-chain broadcast...', { id: 'modal-upload' });
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 640;
-        const MAX_HEIGHT = 640;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width = Math.round((width * MAX_HEIGHT) / height);
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
-        setMediaUrl(dataUrl);
-        toast.success('📸 Image attached and optimized!', { id: 'modal-upload' });
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const {
-    data: hash,
-    isPending: isSubmitting,
-    writeContractAsync,
-  } = useWriteContract();
+  }, [writeError]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
+    if (!isConnected) {
+      toast.error('Connect your wallet first');
+      return;
+    }
     if (!content.trim()) {
-      toast.error('Please enter content to broadcast');
+      toast.error('Write a message to broadcast');
       return;
     }
 
-    // Pack tag + text + mediaUrl into structured post payload
-    let finalPayload = content.trim();
-    const tagObj = MOOD_CATEGORIES.find((m) => m.id === selectedTag);
-    if (tagObj && !finalPayload.includes(tagObj.tag)) {
-      finalPayload = `${tagObj.tag} ${finalPayload}`;
-    }
-    if (mediaUrl.trim()) {
-      finalPayload = `${finalPayload} [media:${mediaUrl.trim()}]`;
+    let payload = `${selectedTag} ${content.trim()}`;
+    if (imageUrl.trim()) {
+      payload += ` [media:${imageUrl.trim()}]`;
     }
 
-    try {
-      toast.loading('Confirming transaction in wallet...', { id: 'create-post' });
-
-      await writeContractAsync({
-        address: contracts.XMoodStreamCore,
-        abi: CORE_ABI,
-        functionName: 'createPost',
-        args: [finalPayload],
-      });
-
-      toast.loading('Mining broadcast on BOT Chain...', { id: 'create-post' });
-
-      setTimeout(() => {
-        toast.success('🎉 Content published successfully! (+10 $XMS)', { id: 'create-post' });
-        setContent('');
-        setMediaUrl('');
-        setShowMediaInput(false);
-        if (onPostCreated) onPostCreated();
-        onClose();
-      }, 3500);
-
-    } catch (err) {
-      console.error(err);
-      toast.error(err.shortMessage || err.message || 'Failed to broadcast post', { id: 'create-post' });
-    }
+    writeContract({
+      address: contracts.XMoodStreamCore,
+      abi: CORE_ABI,
+      functionName: 'createPost',
+      args: [payload],
+    });
   };
 
+  const charCount = content.length;
+  const maxChars = 280;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-      <div className="relative w-full max-w-lg bg-[#0E131F] border border-[#1E293B] rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-base/80 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-xl bg-surface border border-line p-6 space-y-4 shadow-xl">
         
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1E293B] bg-[#090C15]/80">
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00F5A0] animate-pulse"></span>
-            <h3 className="font-grotesk font-bold text-base text-[#F3F4F6]">
-              Creator Studio — Broadcast Stream
-            </h3>
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-line pb-4">
+          <div>
+            <h2 className="font-display font-bold text-base text-main">
+              New On-Chain Broadcast
+            </h2>
+            <p className="text-[11px] font-mono text-sub mt-0.5">
+              Writes directly to {contracts.chainName} Core Contract
+            </p>
           </div>
           <button
             onClick={onClose}
-            className="text-[#94A3B8] hover:text-[#F3F4F6] p-1 rounded-lg hover:bg-[#182032] transition-colors"
+            className="p-1 rounded-lg text-sub hover:text-main hover:bg-elevated transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* Category / Mood Selector */}
-          <div>
-            <label className="block text-xs font-mono text-[#94A3B8] uppercase tracking-wider mb-2">
-              Select Stream Category
+          {/* Category Tag Selection */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-mono text-sub uppercase">
+              Select Stream Tag
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {MOOD_CATEGORIES.map((cat) => (
+              {CATEGORIES.map((cat) => (
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => setSelectedTag(cat.id)}
-                  className={`px-3 py-1.5 rounded-xl font-mono text-xs transition-all ${
-                    selectedTag === cat.id
-                      ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-md shadow-[#00F5A0]/20'
-                      : 'bg-[#090C15] border border-[#1E293B] text-[#94A3B8] hover:text-[#F3F4F6] hover:border-[#00F5A0]/40'
+                  onClick={() => setSelectedTag(cat.tag)}
+                  className={`px-2.5 py-1 rounded text-xs font-mono transition-colors ${
+                    selectedTag === cat.tag
+                      ? 'bg-elevated text-gold border border-gold/40 font-semibold'
+                      : 'text-sub hover:text-main hover:bg-elevated'
                   }`}
                 >
-                  {cat.label}
+                  {cat.tag}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Text Content */}
-          <div>
-            <label className="block text-xs font-mono text-[#94A3B8] uppercase tracking-wider mb-2">
-              Broadcast Message & Insights
-            </label>
+          {/* Textarea */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-[11px] font-mono text-sub">
+              <span>Broadcast Content</span>
+              <span className={charCount > maxChars - 20 ? 'text-gold' : 'text-sub'}>
+                {charCount}/{maxChars}
+              </span>
+            </div>
             <textarea
-              rows={4}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Share alpha, research, analysis, or creative insights to your subscribers..."
-              className="w-full bg-[#090C15] border border-[#1E293B] focus:border-[#00F5A0] rounded-xl p-3.5 text-sm text-[#F3F4F6] placeholder-[#64748B] outline-none transition-colors resize-none font-sans"
-              maxLength={280}
+              placeholder="What alpha or insight are you broadcasting?"
+              rows={4}
+              maxLength={maxChars}
+              className="w-full bg-base border border-line rounded-lg p-3 text-sm text-main placeholder-sub/60 focus:outline-none focus:border-gold transition-colors resize-none"
             />
-            <div className="flex justify-between items-center mt-1 text-[11px] font-mono text-[#64748B]">
+          </div>
+
+          {/* Image URL Input / Toggle */}
+          <div className="space-y-2">
+            {!showImageInput && !imageUrl ? (
               <button
                 type="button"
-                onClick={() => setShowMediaInput(!showMediaInput)}
-                className="text-[#00F5A0] hover:underline flex items-center space-x-1"
+                onClick={() => setShowImageInput(true)}
+                className="text-xs font-mono text-sub hover:text-gold flex items-center space-x-1.5 transition-colors"
               >
                 <ImageIcon className="w-3.5 h-3.5" />
-                <span>{showMediaInput ? 'Hide Media' : (mediaUrl ? 'Change Image' : '+ Attach Image / Photo')}</span>
+                <span>Attach image URL</span>
               </button>
-              <span>{content.length}/280</span>
-            </div>
-          </div>
-
-          {/* Media / Image attachment */}
-          {showMediaInput && (
-            <div className="space-y-3 p-3.5 bg-[#090C15] border border-[#1E293B] rounded-xl animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1.5 bg-[#0E131F] p-1 rounded-lg border border-[#1E293B] text-[11px] font-mono">
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="flex-1 bg-base border border-line rounded-lg px-3 py-2 text-xs text-main placeholder-sub/60 focus:outline-none focus:border-gold font-mono"
+                  />
                   <button
                     type="button"
-                    onClick={() => setMediaType('upload')}
-                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
-                      mediaType === 'upload'
-                        ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
-                        : 'text-[#94A3B8] hover:text-[#F3F4F6]'
-                    }`}
-                  >
-                    <Upload className="w-3 h-3" />
-                    <span>Upload File</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMediaType('url')}
-                    className={`flex items-center space-x-1 px-2.5 py-1 rounded-md transition-all ${
-                      mediaType === 'url'
-                        ? 'bg-[#00F5A0] text-[#090C15] font-bold shadow-sm'
-                        : 'text-[#94A3B8] hover:text-[#F3F4F6]'
-                    }`}
-                  >
-                    <LinkIcon className="w-3 h-3" />
-                    <span>Image URL</span>
-                  </button>
-                </div>
-
-                {mediaUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setMediaUrl('')}
-                    className="text-red-400 hover:text-red-300 text-xs font-mono flex items-center space-x-1 p-1 hover:bg-red-500/10 rounded-md transition-colors"
+                    onClick={() => {
+                      setImageUrl('');
+                      setShowImageInput(false);
+                    }}
+                    className="p-2 rounded-lg bg-elevated border border-line text-sub hover:text-main"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Remove</span>
                   </button>
+                </div>
+
+                {imageUrl && (
+                  <div className="rounded-lg border border-line overflow-hidden max-h-40 bg-base">
+                    <img
+                      src={imageUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={() => toast.error('Invalid image URL')}
+                    />
+                  </div>
                 )}
               </div>
-
-              {mediaType === 'upload' ? (
-                <div>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleImageFileUpload}
-                    className="hidden"
-                  />
-                  {!mediaUrl ? (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border-2 border-dashed border-[#1E293B] hover:border-[#00F5A0]/60 rounded-xl p-4 text-center cursor-pointer transition-colors bg-[#0E131F]/50 group"
-                    >
-                      <Upload className="w-6 h-6 text-[#94A3B8] group-hover:text-[#00F5A0] mx-auto mb-1.5 transition-colors" />
-                      <p className="text-xs font-medium text-[#F3F4F6]">
-                        Click to browse image from device / gallery
-                      </p>
-                      <p className="text-[10px] font-mono text-[#64748B] mt-0.5">
-                        PNG, JPG, WEBP, GIF (Auto-optimized for on-chain)
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <input
-                  type="url"
-                  value={mediaUrl}
-                  onChange={(e) => setMediaUrl(e.target.value)}
-                  placeholder="Paste Image URL (e.g. Unsplash, IPFS, Imgur, GIF)..."
-                  className="w-full bg-[#0E131F] border border-[#1E293B] focus:border-[#00F5A0] rounded-lg px-3 py-2 text-xs font-mono text-[#F3F4F6] outline-none"
-                />
-              )}
-
-              {mediaUrl && (
-                <div className="relative rounded-xl overflow-hidden border border-[#1E293B] max-h-48 bg-black/40">
-                  <img
-                    src={mediaUrl}
-                    alt="Preview"
-                    className="w-full h-48 object-cover"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Creator Reward Benefit */}
-          <div className="bg-[#090C15] border border-[#00F5A0]/20 rounded-xl p-3.5 flex items-start space-x-3 text-xs">
-            <Sparkles className="w-4 h-4 text-[#00F5A0] shrink-0 mt-0.5" />
-            <div className="space-y-0.5">
-              <span className="font-grotesk font-semibold text-[#00F5A0]">
-                Creator Monetization Active
-              </span>
-              <p className="text-[#94A3B8] text-[11px]">
-                Earns +10 $XMS reward tokens immediately + enables direct 95% mUSDT tips from readers.
-              </p>
-            </div>
+            )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center justify-end space-x-3 pt-2">
+          {/* Notice */}
+          <div className="p-3 rounded-lg bg-elevated border border-line text-[11px] font-mono text-sub">
+            💡 Posts are permanently recorded to the on-chain ledger. Tips sent to this post route 95% straight to your address.
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end space-x-2 pt-2 border-t border-line">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-[#090C15] border border-[#1E293B] hover:bg-[#182032] text-[#94A3B8] hover:text-[#F3F4F6] text-xs font-mono transition-colors"
+              className="px-4 py-2 rounded-lg bg-elevated border border-line text-sub hover:text-main text-xs font-medium transition-colors"
             >
               Cancel
             </button>
+
             <button
               type="submit"
-              disabled={isSubmitting || !content.trim()}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-[#00F5A0]/20"
+              disabled={isPending || isWaiting || !content.trim() || !isConnected}
+              className="px-5 py-2 rounded-lg bg-gold hover:bg-gold-hover disabled:opacity-50 text-base font-semibold text-xs transition-colors flex items-center space-x-1.5"
             >
-              {isSubmitting ? (
+              {isPending || isWaiting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-[#090C15]" />
-                  <span>Broadcasting...</span>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Submitting Transaction...</span>
                 </>
               ) : (
                 <>
-                  <Send className="w-3.5 h-3.5 text-[#090C15]" />
-                  <span>Broadcast Now</span>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Broadcast Post</span>
                 </>
               )}
             </button>

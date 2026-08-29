@@ -6,25 +6,22 @@ import Footer from '../../components/Footer';
 import CreatePostModal from '../../components/CreatePostModal';
 import FaucetModal from '../../components/FaucetModal';
 import { useAccount, useReadContract, usePublicClient, useBalance } from 'wagmi';
-import { CONTRACT_ADDRESSES, getContractAddresses, parsePostContent } from '../../contracts/addresses';
+import { getContractAddresses, parsePostContent } from '../../contracts/addresses';
 import { MOCK_USDT_ABI, REWARD_TOKEN_ABI, CORE_ABI, TIP_VAULT_ABI } from '../../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { 
-  User, 
-  Wallet, 
-  Coins, 
-  Sparkles, 
-  Heart, 
-  MessageSquare, 
-  ExternalLink, 
-  Copy, 
-  Layers,
-  ArrowUpRight,
-  TrendingUp,
-  Compass,
+import {
+  User,
+  Radio,
+  Coins,
+  Gift,
+  ExternalLink,
   RefreshCw,
-  Image as ImageIcon
+  Sparkles,
+  ShieldCheck,
+  Send,
+  ArrowUpRight,
+  Wallet,
 } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -34,17 +31,18 @@ export default function ProfilePage() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isFaucetOpen, setIsFaucetOpen] = useState(false);
+
   const [userPosts, setUserPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Read native BOT balance
-  const { data: nativeBalance, refetch: refetchNative } = useBalance({
+  // Wagmi native BOT balance
+  const { data: botBalance, refetch: refetchBot } = useBalance({
     address: address,
     query: { enabled: !!address, refetchInterval: 6000 },
   });
 
-  // Read mUSDT Balance
+  // Wagmi mUSDT balance
   const { data: usdtBalance, refetch: refetchUsdt } = useReadContract({
     address: contracts.MockUSDT,
     abi: MOCK_USDT_ABI,
@@ -53,7 +51,7 @@ export default function ProfilePage() {
     query: { enabled: !!address, refetchInterval: 6000 },
   });
 
-  // Read XMS Balance
+  // Wagmi XMS balance
   const { data: xmsBalance, refetch: refetchXms } = useReadContract({
     address: contracts.RewardToken,
     abi: REWARD_TOKEN_ABI,
@@ -62,8 +60,8 @@ export default function ProfilePage() {
     query: { enabled: !!address, refetchInterval: 6000 },
   });
 
-  // Read Tips Received from TipVault
-  const { data: totalTipsReceived, refetch: refetchTipsReceived } = useReadContract({
+  // Wagmi Tips Received
+  const { data: tipsReceivedData, refetch: refetchTipsRecv } = useReadContract({
     address: contracts.TipVault,
     abi: TIP_VAULT_ABI,
     functionName: 'totalTipsReceived',
@@ -71,8 +69,8 @@ export default function ProfilePage() {
     query: { enabled: !!address, refetchInterval: 6000 },
   });
 
-  // Read Tips Sent from TipVault
-  const { data: totalTipsSent, refetch: refetchTipsSent } = useReadContract({
+  // Wagmi Tips Sent
+  const { data: tipsSentData, refetch: refetchTipsSent } = useReadContract({
     address: contracts.TipVault,
     abi: TIP_VAULT_ABI,
     functionName: 'totalTipsSent',
@@ -80,348 +78,348 @@ export default function ProfilePage() {
     query: { enabled: !!address, refetchInterval: 6000 },
   });
 
-  // Read User Post Count
-  const { data: userPostCount, refetch: refetchPostCount } = useReadContract({
-    address: contracts.XMoodStreamCore,
-    abi: CORE_ABI,
-    functionName: 'getUserPostCount',
-    args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 6000 },
-  });
-
   // Fetch author posts from smart contract
-  const loadUserPosts = useCallback(async (showToast = false) => {
-    if (!publicClient || !address) {
+  const fetchUserPosts = useCallback(async () => {
+    if (!publicClient || !contracts.XMoodStreamCore || !address) {
+      setUserPosts([]);
       setLoadingPosts(false);
+      setIsRefreshing(false);
       return;
     }
 
-    setLoadingPosts(true);
-    if (showToast) setIsRefreshing(true);
-
     try {
-      let postIdsToFetch = [];
+      setLoadingPosts(true);
 
-      // 1. Try getUserPosts first
+      // Strategy 1: Call getUserPosts
+      let postIds = [];
       try {
-        const userPostIdsRaw = await publicClient.readContract({
+        const ids = await publicClient.readContract({
           address: contracts.XMoodStreamCore,
           abi: CORE_ABI,
           functionName: 'getUserPosts',
           args: [address],
         });
-        if (Array.isArray(userPostIdsRaw) && userPostIdsRaw.length > 0) {
-          postIdsToFetch = userPostIdsRaw.map((id) => Number(id));
-        }
+        postIds = ids.map(id => Number(id));
       } catch (e) {
-        console.warn('getUserPosts read fallback:', e);
+        postIds = [];
       }
 
-      // 2. If getUserPosts is empty, scan all posts from totalPosts
-      if (postIdsToFetch.length === 0) {
+      // Strategy 2: If empty, scan totalPosts
+      if (postIds.length === 0) {
         try {
-          const totalPosts = await publicClient.readContract({
+          const totalPostsBig = await publicClient.readContract({
             address: contracts.XMoodStreamCore,
             abi: CORE_ABI,
             functionName: 'getTotalPosts',
           });
-          const count = Number(totalPosts);
-          for (let i = count; i >= 1; i--) {
-            postIdsToFetch.push(i);
-          }
-        } catch (e) {
-          console.warn('getTotalPosts read error:', e);
-        }
-      }
-
-      // Reverse so newest posts appear first
-      postIdsToFetch = Array.from(new Set(postIdsToFetch)).sort((a, b) => b - a);
-
-      // 3. Fetch each post in parallel
-      const postResults = await Promise.all(
-        postIdsToFetch.map(async (postId) => {
-          try {
-            const [post, tipRaw] = await Promise.all([
+          const totalPosts = Number(totalPostsBig);
+          const allPostPromises = [];
+          for (let i = totalPosts; i >= 1; i--) {
+            allPostPromises.push(
               publicClient.readContract({
                 address: contracts.XMoodStreamCore,
                 abi: CORE_ABI,
                 functionName: 'getPost',
-                args: [BigInt(postId)],
-              }),
-              publicClient.readContract({
-                address: contracts.TipVault,
-                abi: TIP_VAULT_ABI,
-                functionName: 'postTips',
-                args: [BigInt(postId)],
-              }).catch(() => 0n),
-            ]);
-
-            if (post.author.toLowerCase() === address.toLowerCase()) {
-              const parsed = parsePostContent(post.contentHash);
-              return {
-                id: Number(post.id),
-                author: post.author,
-                rawContent: post.contentHash,
-                content: parsed.text,
-                mediaUrl: parsed.mediaUrl,
-                timestamp: Number(post.timestamp),
-                tipsUsdt: parseFloat(formatUnits(tipRaw || 0n, 6)),
-              };
-            }
-            return null;
-          } catch (err) {
-            return null;
+                args: [BigInt(i)],
+              }).catch(() => null)
+            );
           }
-        })
-      );
-
-      const validUserPosts = postResults.filter(Boolean);
-      setUserPosts(validUserPosts);
-
-      if (showToast) {
-        toast.success(`Profile synced: ${validUserPosts.length} posts found on-chain!`);
+          const allPosts = await Promise.all(allPostPromises);
+          allPosts.forEach(p => {
+            if (p && p.author.toLowerCase() === address.toLowerCase()) {
+              postIds.push(Number(p.id));
+            }
+          });
+        } catch (err) {}
       }
+
+      if (postIds.length === 0) {
+        setUserPosts([]);
+        setLoadingPosts(false);
+        setIsRefreshing(false);
+        return;
+      }
+
+      // Fetch details in parallel
+      const postDetailsPromises = postIds.map(async (postId) => {
+        try {
+          const post = await publicClient.readContract({
+            address: contracts.XMoodStreamCore,
+            abi: CORE_ABI,
+            functionName: 'getPost',
+            args: [BigInt(postId)],
+          });
+
+          let postTips = BigInt(0);
+          try {
+            postTips = await publicClient.readContract({
+              address: contracts.TipVault,
+              abi: TIP_VAULT_ABI,
+              functionName: 'postTips',
+              args: [BigInt(postId)],
+            });
+          } catch (e) {}
+
+          return {
+            id: Number(post.id),
+            author: post.author,
+            rawContent: post.contentHash,
+            timestamp: Number(post.timestamp),
+            tipsEarned: parseFloat(formatUnits(postTips, 6)),
+          };
+        } catch (e) {
+          return null;
+        }
+      });
+
+      const resolvedPosts = await Promise.all(postDetailsPromises);
+      const validSorted = resolvedPosts.filter(Boolean).sort((a, b) => b.id - a.id);
+      setUserPosts(validSorted);
     } catch (err) {
-      console.error('Failed to load profile posts:', err);
-      if (showToast) toast.error('Failed to sync on-chain data');
+      console.error('Failed to fetch user posts:', err);
     } finally {
       setLoadingPosts(false);
       setIsRefreshing(false);
     }
-  }, [publicClient, address, contracts.XMoodStreamCore, contracts.TipVault]);
+  }, [publicClient, contracts.XMoodStreamCore, contracts.TipVault, address]);
 
   useEffect(() => {
-    loadUserPosts(false);
-  }, [loadUserPosts, userPostCount]);
+    fetchUserPosts();
+    const interval = setInterval(fetchUserPosts, 8000);
+    return () => clearInterval(interval);
+  }, [fetchUserPosts]);
 
-  const handleManualRefresh = async () => {
-    refetchNative?.();
-    refetchUsdt?.();
-    refetchXms?.();
-    refetchTipsReceived?.();
-    refetchTipsSent?.();
-    refetchPostCount?.();
-    await loadUserPosts(true);
+  const handleManualSync = () => {
+    setIsRefreshing(true);
+    refetchBot();
+    refetchUsdt();
+    refetchXms();
+    refetchTipsRecv();
+    refetchTipsSent();
+    fetchUserPosts();
+    toast.success('Synchronized with ledger');
   };
 
-  const copyAddress = () => {
-    if (!address) return;
-    navigator.clipboard.writeText(address);
-    toast.success('Address copied to clipboard!');
-  };
+  const usdtFormatted = usdtBalance !== undefined
+    ? parseFloat(formatUnits(usdtBalance, 6)).toFixed(2)
+    : '0.00';
 
-  const usdtFormatted = usdtBalance !== undefined ? parseFloat(formatUnits(usdtBalance, 6)).toFixed(2) : '0.00';
-  const xmsFormatted = xmsBalance !== undefined ? parseFloat(formatUnits(xmsBalance, 18)).toFixed(2) : '0.00';
-  const nativeFormatted = nativeBalance ? parseFloat(nativeBalance.formatted).toFixed(3) : '0.000';
-  const tipsReceivedFormatted = totalTipsReceived !== undefined ? parseFloat(formatUnits(totalTipsReceived, 6)).toFixed(2) : '0.00';
-  const tipsSentFormatted = totalTipsSent !== undefined ? parseFloat(formatUnits(totalTipsSent, 6)).toFixed(2) : '0.00';
-  const recordedPostCount = userPostCount ? Number(userPostCount) : userPosts.length;
+  const xmsFormatted = xmsBalance !== undefined
+    ? parseFloat(formatUnits(xmsBalance, 18)).toFixed(2)
+    : '0.00';
+
+  const tipsReceivedFormatted = tipsReceivedData !== undefined
+    ? parseFloat(formatUnits(tipsReceivedData, 6)).toFixed(2)
+    : '0.00';
+
+  const tipsSentFormatted = tipsSentData !== undefined
+    ? parseFloat(formatUnits(tipsSentData, 6)).toFixed(2)
+    : '0.00';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6]">
+    <div className="min-h-screen flex flex-col bg-base text-main selection:bg-gold selection:text-base">
       <Navbar
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenFaucet={() => setIsFaucetOpen(true)}
       />
 
-      <main className="flex-grow max-w-5xl mx-auto px-4 sm:px-6 w-full py-8 space-y-6">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
         
-        {/* Profile Card Header */}
-        <div className="bg-gradient-to-br from-[#0E131F] via-[#111726] to-[#090C15] border border-[#1E293B] rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center font-mono text-xl font-bold text-[#090C15] shadow-xl shadow-[#00F5A0]/20">
+        {/* Profile Header Card */}
+        <div className="p-6 rounded-xl bg-surface border border-line space-y-5">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3.5">
+              <div className="w-12 h-12 rounded-xl bg-elevated border border-line flex items-center justify-center text-main font-mono font-bold text-sm">
                 {address ? address.slice(2, 4).toUpperCase() : '0x'}
               </div>
 
               <div>
                 <div className="flex items-center space-x-2">
-                  <h1 className="font-grotesk font-bold text-xl sm:text-2xl text-[#F3F4F6]">
-                    {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Wallet Disconnected'}
-                  </h1>
-                  {address && (
-                    <button
-                      onClick={copyAddress}
-                      className="p-1.5 rounded-lg hover:bg-[#182032] text-[#94A3B8] hover:text-[#00F5A0] transition-colors"
-                      title="Copy Address"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                
-                <div className="flex items-center space-x-3 mt-1 text-xs font-mono text-[#94A3B8]">
-                  <span>Network: <strong className="text-[#00F5A0]">{contracts.chainName}</strong></span>
-                  <span>•</span>
+                  <span className="font-mono text-sm font-bold text-main">
+                    {address ? `${address.slice(0, 8)}...${address.slice(-6)}` : 'Not Connected'}
+                  </span>
                   {address && (
                     <a
                       href={`${contracts.explorer}/address/${address}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[#00F5A0] hover:underline flex items-center space-x-1"
+                      className="text-sub hover:text-gold transition-colors"
+                      title="View on Block Explorer"
                     >
-                      <span>View on Explorer</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
+                </div>
+                <div className="text-[11px] font-mono text-sub mt-0.5">
+                  Connected Network: {contracts.chainName} ({contracts.chainId})
                 </div>
               </div>
             </div>
 
-            {/* Actions: Refresh & Faucet */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <button
-                onClick={handleManualRefresh}
-                disabled={isRefreshing}
-                className="px-3.5 py-2.5 rounded-xl bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/50 text-[#94A3B8] hover:text-[#00F5A0] font-mono text-xs flex items-center space-x-1.5 transition-all"
-                title="Sync on-chain stats"
+                onClick={handleManualSync}
+                disabled={isRefreshing || !address}
+                className="px-3 py-1.5 rounded-lg bg-elevated hover:bg-line border border-line text-sub hover:text-main text-xs font-mono transition-colors flex items-center space-x-1.5"
+                title="Refresh balances and on-chain records"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#00F5A0]' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-gold' : ''}`} />
                 <span>Sync</span>
               </button>
 
               <button
-                onClick={() => setIsFaucetOpen(true)}
-                className="px-4 py-2.5 rounded-xl bg-[#090C15] border border-[#F59E0B]/50 hover:bg-[#F59E0B]/10 text-[#F59E0B] font-mono text-xs font-semibold flex items-center space-x-2 transition-all"
+                onClick={() => setIsCreateOpen(true)}
+                className="px-3.5 py-1.5 rounded-lg bg-gold hover:bg-gold-hover text-base font-semibold text-xs transition-colors flex items-center space-x-1.5"
               >
-                <Coins className="w-4 h-4" />
-                <span>Get +100 mUSDT</span>
+                <Send className="w-3.5 h-3.5" />
+                <span>Broadcast</span>
               </button>
             </div>
-
-          </div>
-        </div>
-
-        {/* Balance & Telemetry Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* Card 1: Native Gas (BOT) */}
-          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
-              <span>Native Gas</span>
-              <Compass className="w-4 h-4 text-[#00F5A0]" />
-            </div>
-            <div className="font-mono text-2xl font-extrabold text-[#F3F4F6] pt-1">
-              {nativeFormatted} <span className="text-xs text-[#94A3B8]">BOT</span>
-            </div>
-            <div className="text-[11px] font-mono text-[#00F5A0]">
-              {contracts.chainName}
-            </div>
           </div>
 
-          {/* Card 2: mUSDT Balance */}
-          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
-              <span>Tipping Balance</span>
-              <Coins className="w-4 h-4 text-[#F59E0B]" />
+          {/* Account Metrics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-line">
+            
+            <div className="p-3 rounded-lg bg-base border border-line">
+              <div className="text-[10px] font-mono text-sub uppercase">mUSDT Balance</div>
+              <div className="text-base font-mono font-bold text-gold mt-0.5">
+                {usdtFormatted}
+              </div>
             </div>
-            <div className="font-mono text-2xl font-extrabold text-[#F59E0B] pt-1">
-              {usdtFormatted} <span className="text-xs text-[#94A3B8]">USDT</span>
-            </div>
-            <div className="text-[11px] font-mono text-[#94A3B8]">
-              Sent: {tipsSentFormatted} USDT
-            </div>
-          </div>
 
-          {/* Card 3: XMS Token Balance */}
-          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
-              <span>Loyalty & Gas Token</span>
-              <Sparkles className="w-4 h-4 text-[#00F5A0]" />
+            <div className="p-3 rounded-lg bg-base border border-line">
+              <div className="text-[10px] font-mono text-sub uppercase">$XMS Balance</div>
+              <div className="text-base font-mono font-bold text-glacier mt-0.5">
+                {xmsFormatted}
+              </div>
             </div>
-            <div className="font-mono text-2xl font-extrabold text-[#00F5A0] pt-1">
-              {xmsFormatted} <span className="text-xs text-[#94A3B8]">XMS</span>
-            </div>
-            <div className="text-[11px] font-mono text-[#00F5A0]">
-              Active Protocol Utility
-            </div>
-          </div>
 
-          {/* Card 4: Tips Earned */}
-          <div className="bg-[#0E131F] border border-[#1E293B] p-5 rounded-2xl space-y-1">
-            <div className="flex items-center justify-between text-xs font-mono text-[#94A3B8]">
-              <span>Creator Earnings</span>
-              <Heart className="w-4 h-4 text-[#F59E0B]" />
+            <div className="p-3 rounded-lg bg-base border border-line">
+              <div className="text-[10px] font-mono text-sub uppercase">Tips Earned (95%)</div>
+              <div className="text-base font-mono font-bold text-main mt-0.5">
+                +{tipsReceivedFormatted} <span className="text-[10px] font-normal text-sub">USDT</span>
+              </div>
             </div>
-            <div className="font-mono text-2xl font-extrabold text-[#F3F4F6] pt-1">
-              {tipsReceivedFormatted} <span className="text-xs text-[#94A3B8]">USDT</span>
+
+            <div className="p-3 rounded-lg bg-base border border-line">
+              <div className="text-[10px] font-mono text-sub uppercase">Tips Sent</div>
+              <div className="text-base font-mono font-bold text-sub mt-0.5">
+                {tipsSentFormatted} <span className="text-[10px] font-normal text-sub">USDT</span>
+              </div>
             </div>
-            <div className="text-[11px] font-mono text-[#00F5A0]">
-              95% Direct Vault Split
-            </div>
+
           </div>
 
         </div>
 
-        {/* User Broadcasts List */}
-        <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between ledger-border-b pb-4">
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="w-5 h-5 text-[#00F5A0]" />
-              <h2 className="font-grotesk font-bold text-lg text-[#F3F4F6]">
-                Your Broadcasted Streams
-              </h2>
-            </div>
-            <span className="text-xs font-mono text-[#94A3B8]">
-              {userPosts.length} Streams Recorded
+        {/* User Stream Records Section */}
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display font-bold text-base text-main">
+              Authored Broadcasts ({userPosts.length})
+            </h2>
+            <span className="font-mono text-xs text-sub">
+              Immutable Records
             </span>
           </div>
 
           {!isConnected ? (
-            <div className="py-12 text-center text-sm font-mono text-[#94A3B8]">
-              Connect your wallet to view your on-chain broadcast history
+            <div className="p-12 rounded-xl bg-surface border border-line text-center space-y-2">
+              <Wallet className="w-8 h-8 text-sub mx-auto mb-2" />
+              <p className="text-main font-semibold text-sm">Wallet Not Connected</p>
+              <p className="text-sub text-xs">Connect your wallet to review your on-chain broadcasts and earned tips.</p>
             </div>
           ) : loadingPosts ? (
-            <div className="py-12 text-center text-sm font-mono text-[#94A3B8] space-y-2">
-              <div className="w-6 h-6 border-2 border-[#00F5A0] border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p>Scanning blockchain for your posts...</p>
+            <div className="p-12 rounded-xl bg-surface border border-line text-center text-sub font-mono text-xs">
+              Synchronizing broadcasts for {address.slice(0, 6)}...{address.slice(-4)}...
             </div>
           ) : userPosts.length === 0 ? (
-            <div className="py-12 text-center space-y-3">
-              <Layers className="w-8 h-8 text-[#94A3B8] mx-auto opacity-50" />
-              <p className="font-grotesk font-semibold text-sm text-[#F3F4F6]">
-                No broadcasts published yet
+            <div className="p-12 rounded-xl bg-surface border border-line text-center space-y-3">
+              <p className="text-main font-semibold text-sm">No broadcasts published yet.</p>
+              <p className="text-sub text-xs max-w-sm mx-auto">
+                Share an insight to record your first immutable entry to the ledger and start receiving tips.
               </p>
               <button
                 onClick={() => setIsCreateOpen(true)}
-                className="px-4 py-2 rounded-xl bg-[#00F5A0] hover:bg-[#00F5A0]/90 text-[#090C15] font-grotesk font-bold text-xs uppercase transition-all"
+                className="px-4 py-2 rounded-lg bg-gold hover:bg-gold-hover text-base font-semibold text-xs transition-colors"
               >
-                Create Your First Post
+                Create First Broadcast
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {userPosts.map((post) => (
-                <div
-                  key={post.id}
-                  className="bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/40 rounded-xl p-4 transition-all space-y-2"
-                >
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-mono text-[#94A3B8]">
-                      TX #{post.id} • {post.timestamp > 0 ? new Date(post.timestamp * 1000).toLocaleString() : 'Recent'}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-lg bg-[#F59E0B]/20 text-[#F59E0B] font-mono text-xs font-bold border border-[#F59E0B]/30">
-                      +{post.tipsUsdt.toFixed(2)} USDT Tipped
-                    </span>
-                  </div>
+            <div className="space-y-4">
+              {userPosts.map((post) => {
+                const parsed = parsePostContent(post.rawContent);
+                const postDate = new Date(post.timestamp * 1000);
+                const timeAgo = postDate.toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
 
-                  <p className="font-sans text-sm text-[#F3F4F6] leading-relaxed my-2">
-                    {post.content}
-                  </p>
+                return (
+                  <div
+                    key={post.id}
+                    className="p-5 rounded-xl bg-surface border border-line hover:border-sub/30 transition-colors space-y-3"
+                  >
+                    {/* Entry Header */}
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-main font-bold">Entry #{post.id}</span>
+                        <span className="text-line">•</span>
+                        <span className="text-sub">{timeAgo}</span>
+                      </div>
 
-                  {post.mediaUrl && (
-                    <div className="rounded-lg overflow-hidden border border-[#1E293B] max-h-60 max-w-sm mt-2">
-                      <img
-                        src={post.mediaUrl}
-                        alt="Broadcast Attachment"
-                        className="w-full h-auto object-cover"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
+                      {post.tipsEarned > 0 ? (
+                        <span className="px-2.5 py-0.5 rounded bg-gold/10 border border-gold/30 text-gold font-bold text-[11px]">
+                          +{post.tipsEarned.toFixed(2)} USDT Tipped
+                        </span>
+                      ) : (
+                        <span className="text-sub text-[11px]">0.00 USDT</span>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Content */}
+                    <div className="space-y-2">
+                      {parsed.tag && (
+                        <span className="inline-block px-2 py-0.5 rounded bg-elevated border border-line text-glacier text-[11px] font-mono font-medium">
+                          {parsed.tag}
+                        </span>
+                      )}
+                      <p className="text-sm text-main leading-relaxed">
+                        {parsed.text}
+                      </p>
+                    </div>
+
+                    {/* Media Attachment if present */}
+                    {parsed.imageUrl && (
+                      <div className="rounded-lg border border-line overflow-hidden max-h-64 bg-base">
+                        <img
+                          src={parsed.imageUrl}
+                          alt="Stream attachment"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    {/* Entry Footer */}
+                    <div className="pt-2.5 border-t border-line flex items-center justify-between text-[11px] font-mono text-sub">
+                      <span>Smart Contract: XMoodStreamCore</span>
+                      <a
+                        href={`${contracts.explorer}/address/${contracts.XMoodStreamCore}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="hover:text-main flex items-center space-x-1"
+                      >
+                        <span>View Contract</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -430,20 +428,20 @@ export default function ProfilePage() {
 
       <Footer />
 
+      {/* Modals */}
       <CreatePostModal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onPostCreated={() => {
-          setTimeout(() => {
-            loadUserPosts(false);
-          }, 3500);
+        onClose={() => {
+          setIsCreateOpen(false);
+          fetchUserPosts();
         }}
       />
+
       <FaucetModal
         isOpen={isFaucetOpen}
-        onClose={() => setIsFaucetOpen(false)}
-        onMintSuccess={() => {
-          refetchUsdt?.();
+        onClose={() => {
+          setIsFaucetOpen(false);
+          refetchUsdt();
         }}
       />
     </div>

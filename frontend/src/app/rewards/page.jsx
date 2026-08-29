@@ -6,33 +6,23 @@ import Footer from '../../components/Footer';
 import CreatePostModal from '../../components/CreatePostModal';
 import FaucetModal from '../../components/FaucetModal';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
-import { CONTRACT_ADDRESSES, getContractAddresses } from '../../contracts/addresses';
+import { getContractAddresses } from '../../contracts/addresses';
 import { REWARD_DISTRIBUTOR_ABI, REWARD_TOKEN_ABI, CORE_ABI, TIP_VAULT_ABI } from '../../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
-import { 
-  Gift, 
-  Sparkles, 
-  Clock, 
-  CheckCircle2, 
-  Coins, 
-  Loader2, 
-  Layers, 
-  Heart, 
-  ArrowRight, 
-  TrendingUp,
-  ShieldCheck
-} from 'lucide-react';
+import { Gift, ShieldCheck, Zap, Clock, Coins, CheckCircle2, AlertCircle, Loader2, Sparkles, Radio } from 'lucide-react';
 
 export default function RewardsPage() {
   const { address, isConnected, chain } = useAccount();
+  const publicClient = usePublicClient();
   const contracts = getContractAddresses(chain?.id);
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isFaucetOpen, setIsFaucetOpen] = useState(false);
-  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [countdown, setCountdown] = useState(null);
 
-  // Read pending reward
-  const { data: pendingReward, refetch: refetchPending } = useReadContract({
+  // Wagmi reads
+  const { data: claimableAmount, refetch: refetchClaimable } = useReadContract({
     address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'calculatePendingReward',
@@ -40,8 +30,7 @@ export default function RewardsPage() {
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 
-  // Read canClaim status
-  const { data: isEligibleToClaim, refetch: refetchCanClaim } = useReadContract({
+  const { data: canClaimNow, refetch: refetchCanClaim } = useReadContract({
     address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'canClaim',
@@ -49,8 +38,7 @@ export default function RewardsPage() {
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 
-  // Read time until next claim
-  const { data: secondsRemaining, refetch: refetchTimer } = useReadContract({
+  const { data: timeRemainingData, refetch: refetchTime } = useReadContract({
     address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'timeUntilNextClaim',
@@ -58,8 +46,15 @@ export default function RewardsPage() {
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 
-  // Read total rewards claimed by user
-  const { data: totalClaimed, refetch: refetchTotalClaimed } = useReadContract({
+  const { data: userXmsBalance, refetch: refetchBalance } = useReadContract({
+    address: contracts.RewardToken,
+    abi: REWARD_TOKEN_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: !!address, refetchInterval: 5000 },
+  });
+
+  const { data: totalClaimedData } = useReadContract({
     address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'totalRewardsClaimed',
@@ -67,8 +62,7 @@ export default function RewardsPage() {
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 
-  // Read current posts and tips for quest indicators
-  const { data: userPostsCount } = useReadContract({
+  const { data: userPostCount } = useReadContract({
     address: contracts.XMoodStreamCore,
     abi: CORE_ABI,
     functionName: 'getUserPostCount',
@@ -76,7 +70,7 @@ export default function RewardsPage() {
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 
-  const { data: tipsReceived } = useReadContract({
+  const { data: userTipsReceived } = useReadContract({
     address: contracts.TipVault,
     abi: TIP_VAULT_ABI,
     functionName: 'totalTipsReceived',
@@ -84,252 +78,233 @@ export default function RewardsPage() {
     query: { enabled: !!address, refetchInterval: 5000 },
   });
 
-  const {
-    data: hash,
-    isPending: isClaiming,
-    writeContractAsync,
-  } = useWriteContract();
+  // Write contract for Claim
+  const { data: claimTxHash, writeContract, isPending: isClaimPending } = useWriteContract();
+  const { isLoading: isWaitingTx, isSuccess: isClaimSuccess } = useWaitForTransactionReceipt({
+    hash: claimTxHash,
+  });
 
-  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
-
-  useEffect(() => {
-    if (secondsRemaining !== undefined) {
-      setCooldownRemaining(Number(secondsRemaining));
-    }
-  }, [secondsRemaining]);
-
-  // Countdown interval
-  useEffect(() => {
-    if (cooldownRemaining <= 0) return;
-    const timer = setInterval(() => {
-      setCooldownRemaining((prev) => {
-        if (prev <= 1) {
-          refetchCanClaim();
-          refetchPending();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldownRemaining, refetchCanClaim, refetchPending]);
-
-  const handleClaimReward = async () => {
-    if (!address) {
-      toast.error('Please connect your wallet first');
+  const handleClaim = () => {
+    if (!isConnected) {
+      toast.error('Connect your wallet first');
       return;
     }
-    if (!isEligibleToClaim && cooldownRemaining > 0) {
-      toast.error('Cooldown active. Please wait 24h between claims.');
+    if (!canClaimNow) {
+      toast.error('Claim cooldown active (24 hours between claims)');
       return;
     }
 
-    try {
-      toast.loading(`Distributing $XMS on ${contracts.chainName}...`, { id: 'claim-reward' });
-
-      await writeContractAsync({
-        address: contracts.RewardDistributor,
-        abi: REWARD_DISTRIBUTOR_ABI,
-        functionName: 'claimReward',
-      });
-
-      toast.loading('Waiting for blockchain confirmation...', { id: 'claim-reward' });
-
-      // Refresh on-chain states
-      setTimeout(() => {
-        refetchPending();
-        refetchCanClaim();
-        refetchTimer();
-        refetchTotalClaimed();
-        toast.success('🎉 $XMS Rewards claimed successfully!', { id: 'claim-reward' });
-      }, 3500);
-    } catch (err) {
-      console.error(err);
-      toast.error(err.shortMessage || err.message || 'Failed to claim reward', { id: 'claim-reward' });
-    }
+    writeContract({
+      address: contracts.RewardDistributor,
+      abi: REWARD_DISTRIBUTOR_ABI,
+      functionName: 'claimReward',
+    });
   };
 
-  const formatCooldown = (secs) => {
-    if (secs <= 0) return 'Ready to Claim!';
+  useEffect(() => {
+    if (isClaimSuccess) {
+      toast.success('Rewards claimed successfully');
+      refetchClaimable();
+      refetchCanClaim();
+      refetchTime();
+      refetchBalance();
+    }
+  }, [isClaimSuccess, refetchClaimable, refetchCanClaim, refetchTime, refetchBalance]);
+
+  // Countdown timer calculation
+  useEffect(() => {
+    if (timeRemainingData) {
+      let seconds = Number(timeRemainingData);
+      setCountdown(seconds);
+
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            refetchCanClaim();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [timeRemainingData, refetchCanClaim]);
+
+  const formatCountdown = (secs) => {
+    if (!secs || secs <= 0) return '00:00:00';
     const h = Math.floor(secs / 3600);
     const m = Math.floor((secs % 3600) / 60);
     const s = secs % 60;
-    return `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const claimableFormatted = pendingReward !== undefined ? parseFloat(formatUnits(pendingReward, 18)).toFixed(2) : '5.00';
-  const totalClaimedFormatted = totalClaimed !== undefined ? parseFloat(formatUnits(totalClaimed, 18)).toFixed(1) : '0.0';
+  const claimableFormatted = claimableAmount
+    ? parseFloat(formatUnits(claimableAmount, 18)).toFixed(2)
+    : '0.00';
+
+  const balanceFormatted = userXmsBalance
+    ? parseFloat(formatUnits(userXmsBalance, 18)).toFixed(2)
+    : '0.00';
+
+  const totalClaimedFormatted = totalClaimedData
+    ? parseFloat(formatUnits(totalClaimedData, 18)).toFixed(2)
+    : '0.00';
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6]">
+    <div className="min-h-screen flex flex-col bg-base text-main selection:bg-gold selection:text-base">
       <Navbar
         onOpenCreate={() => setIsCreateOpen(true)}
         onOpenFaucet={() => setIsFaucetOpen(true)}
       />
 
-      <main className="flex-grow max-w-5xl mx-auto px-4 sm:px-6 w-full py-8 space-y-6">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8">
         
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0E131F] border border-[#1E293B] p-6 rounded-2xl shadow-xl">
-          <div>
-            <div className="flex items-center space-x-2">
-              <Gift className="w-6 h-6 text-[#00F5A0]" />
-              <h1 className="font-grotesk font-bold text-2xl text-[#F3F4F6]">
-                $XMS Reward Distribution
-              </h1>
-            </div>
-            <p className="text-xs font-mono text-[#94A3B8] mt-1">
-              Earn $XMS utility tokens via daily check-in, broadcasting insights, and receiving USDT tips
-            </p>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <div className="bg-[#090C15] border border-[#1E293B] px-3.5 py-2 rounded-xl font-mono text-xs text-[#94A3B8]">
-              Lifetime Claimed: <strong className="text-[#00F5A0]">{totalClaimedFormatted} $XMS</strong>
-            </div>
-          </div>
+        {/* Header Telemetry */}
+        <div className="pb-6 border-b border-line">
+          <h1 className="font-display font-bold text-xl sm:text-2xl text-main">
+            Activity Rewards ($XMS)
+          </h1>
+          <p className="text-sub text-xs mt-0.5">
+            Claimable daily reward allocation based on on-chain posting and received tips.
+          </p>
         </div>
 
-        {/* Claim Card Hero Banner */}
-        <div className="bg-gradient-to-br from-[#0E131F] via-[#111726] to-[#090C15] border border-[#00F5A0]/40 rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        {/* Claim Vault Card */}
+        <div className="mt-6 p-6 rounded-xl bg-surface border border-line space-y-6">
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            
-            {/* Left Col - Balance & Token Info */}
-            <div className="lg:col-span-7 space-y-3">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#00F5A0]/10 border border-[#00F5A0]/30 text-xs font-mono text-[#00F5A0]">
-                <ShieldCheck className="w-4 h-4 text-[#00F5A0]" />
-                <span>{contracts.chainName} Reward Pool</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-mono text-sub uppercase tracking-wider">
+                Pending Reward Allocation
               </div>
-
-              <div>
-                <div className="text-xs font-mono text-[#94A3B8] uppercase tracking-wider">
-                  Available to Claim Now
-                </div>
-                <div className="flex items-baseline space-x-3 mt-1">
-                  <span className="font-mono text-4xl sm:text-5xl font-extrabold text-[#00F5A0] tracking-tight">
-                    {claimableFormatted}
-                  </span>
-                  <span className="font-grotesk text-xl font-bold text-[#F3F4F6]">
-                    $XMS
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-xs text-[#94A3B8] font-sans max-w-md leading-relaxed">
-                Includes 5.0 $XMS daily check-in quota + 10.0 $XMS per on-chain post + 0.1 $XMS per 1.0 mUSDT received in tips.
-              </p>
-            </div>
-
-            {/* Right Col - Claim Button & Cooldown */}
-            <div className="lg:col-span-5 bg-[#090C15]/90 border border-[#1E293B] p-6 rounded-2xl flex flex-col items-center justify-center text-center space-y-4">
-              
-              {/* Cooldown Status Badge */}
-              <div className="flex items-center space-x-2 font-mono text-xs">
-                <Clock className="w-4 h-4 text-[#94A3B8]" />
-                <span className="text-[#94A3B8]">Cooldown:</span>
-                <span className={`font-bold ${cooldownRemaining > 0 ? 'text-[#F59E0B]' : 'text-[#00F5A0]'}`}>
-                  {formatCooldown(cooldownRemaining)}
+              <div className="flex items-baseline space-x-2 mt-1">
+                <span className="font-mono text-4xl font-extrabold text-glacier tracking-tight">
+                  {claimableFormatted}
+                </span>
+                <span className="font-display text-lg font-bold text-main">
+                  $XMS
                 </span>
               </div>
-
-              {/* Claim Button */}
-              <button
-                onClick={handleClaimReward}
-                disabled={!isConnected || !isEligibleToClaim || isClaiming || isConfirming || cooldownRemaining > 0}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-sm uppercase tracking-wider hover:opacity-95 shadow-xl shadow-[#00F5A0]/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-              >
-                {isClaiming || isConfirming ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-[#090C15]" />
-                    <span>Claiming Tokens...</span>
-                  </>
-                ) : cooldownRemaining > 0 ? (
-                  <>
-                    <Clock className="w-4 h-4" />
-                    <span>Cooldown Active</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Claim {claimableFormatted} $XMS</span>
-                  </>
-                )}
-              </button>
-
-              <div className="text-[11px] font-mono text-[#64748B]">
-                Enforces 24h cooldown cycle per wallet address
-              </div>
             </div>
 
+            <div>
+              {canClaimNow ? (
+                <button
+                  onClick={handleClaim}
+                  disabled={isClaimPending || isWaitingTx || !isConnected || parseFloat(claimableFormatted) <= 0}
+                  className="w-full sm:w-auto px-6 py-3 rounded-lg bg-gold hover:bg-gold-hover disabled:opacity-50 text-base font-semibold text-xs transition-colors flex items-center justify-center space-x-2"
+                >
+                  {isClaimPending || isWaitingTx ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Claiming...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Gift className="w-3.5 h-3.5" />
+                      <span>Claim Rewards</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="p-3 rounded-lg bg-elevated border border-line text-center sm:text-right font-mono">
+                  <div className="text-[10px] text-sub uppercase">Next Claim In</div>
+                  <div className="text-sm font-bold text-main mt-0.5">
+                    {formatCountdown(countdown)}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Reward Formula Breakdown */}
+          <div className="pt-4 border-t border-line space-y-2">
+            <div className="text-xs font-display font-semibold text-main">
+              Reward Distribution Formula
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px]">
+              <div className="p-2.5 rounded bg-base border border-line">
+                <span className="text-sub">Base Daily:</span> <strong className="text-main">5.0 $XMS</strong>
+              </div>
+              <div className="p-2.5 rounded bg-base border border-line">
+                <span className="text-sub">Per Broadcast:</span> <strong className="text-main">+10.0 $XMS</strong>
+              </div>
+              <div className="p-2.5 rounded bg-base border border-line">
+                <span className="text-sub">Per 1 USDT Tip:</span> <strong className="text-main">+0.1 $XMS</strong>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        {/* Quests & Earning Breakdown */}
-        <div className="bg-[#0E131F] border border-[#1E293B] rounded-2xl p-6 shadow-xl">
-          <div className="ledger-border-b pb-4 mb-4">
-            <h2 className="font-grotesk font-bold text-lg text-[#F3F4F6] flex items-center space-x-2">
-              <CheckCircle2 className="w-5 h-5 text-[#00F5A0]" />
-              <span>Reward Earning Quests</span>
-            </h2>
+        {/* User Telemetry Overview */}
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          
+          <div className="p-4 rounded-xl bg-surface border border-line">
+            <div className="text-[11px] font-mono text-sub uppercase">Wallet Balance</div>
+            <div className="text-lg font-mono font-bold text-main mt-1">
+              {balanceFormatted} <span className="text-xs font-normal text-sub">XMS</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            
-            {/* Quest 1 */}
-            <div className="bg-[#090C15] border border-[#1E293B] p-4 rounded-xl space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono">
-                <span className="text-[#94A3B8]">Daily Check-in</span>
-                <span className="text-[#00F5A0] font-bold">+5.0 $XMS</span>
-              </div>
-              <p className="text-xs text-[#F3F4F6] font-sans">
-                Claim rewards once every 24 hours to automatically collect your base activity reward.
-              </p>
-              <div className="pt-2 text-[11px] font-mono text-[#00F5A0] flex items-center space-x-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Base Daily Allocation</span>
-              </div>
+          <div className="p-4 rounded-xl bg-surface border border-line">
+            <div className="text-[11px] font-mono text-sub uppercase">Total Claimed</div>
+            <div className="text-lg font-mono font-bold text-glacier mt-1">
+              {totalClaimedFormatted} <span className="text-xs font-normal text-sub">XMS</span>
             </div>
-
-            {/* Quest 2 */}
-            <div className="bg-[#090C15] border border-[#1E293B] p-4 rounded-xl space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono">
-                <span className="text-[#94A3B8]">Broadcast Insights</span>
-                <span className="text-[#00F5A0] font-bold">+10.0 $XMS / Post</span>
-              </div>
-              <p className="text-xs text-[#F3F4F6] font-sans">
-                Publish verified updates on the core smart contract. Each broadcast earns 10 $XMS.
-              </p>
-              <div className="pt-2 text-[11px] font-mono text-[#94A3B8]">
-                Your Posts: <strong className="text-[#F3F4F6]">{userPostsCount ? userPostsCount.toString() : '0'}</strong>
-              </div>
-            </div>
-
-            {/* Quest 3 */}
-            <div className="bg-[#090C15] border border-[#1E293B] p-4 rounded-xl space-y-2">
-              <div className="flex justify-between items-center text-xs font-mono">
-                <span className="text-[#94A3B8]">Creator Tipping Royalty</span>
-                <span className="text-[#00F5A0] font-bold">+0.1 $XMS / 1 USDT</span>
-              </div>
-              <p className="text-xs text-[#F3F4F6] font-sans">
-                Receive tips in mUSDT from your readers. For every 10 USDT earned, get 1 $XMS bonus.
-              </p>
-              <div className="pt-2 text-[11px] font-mono text-[#94A3B8]">
-                Tips Earned: <strong className="text-[#F59E0B]">{tipsReceived !== undefined ? parseFloat(formatUnits(tipsReceived, 6)).toFixed(2) : '0.00'} USDT</strong>
-              </div>
-            </div>
-
           </div>
+
+          <div className="p-4 rounded-xl bg-surface border border-line">
+            <div className="text-[11px] font-mono text-sub uppercase">Posts Authored</div>
+            <div className="text-lg font-mono font-bold text-main mt-1">
+              {userPostCount ? Number(userPostCount) : 0}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-surface border border-line">
+            <div className="text-[11px] font-mono text-sub uppercase">Tips Received</div>
+            <div className="text-lg font-mono font-bold text-gold mt-1">
+              {userTipsReceived ? parseFloat(formatUnits(userTipsReceived, 6)).toFixed(1) : '0.0'} <span className="text-xs font-normal text-sub">USDT</span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Protocol Rules Accordion */}
+        <div className="mt-6 p-5 rounded-xl bg-surface border border-line space-y-3">
+          <div className="flex items-center space-x-2 text-xs font-display font-semibold text-main">
+            <ShieldCheck className="w-4 h-4 text-glacier" />
+            <span>Distribution Rules</span>
+          </div>
+
+          <ul className="space-y-2 text-xs text-sub leading-relaxed">
+            <li className="flex items-start space-x-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold mt-1.5 shrink-0"></span>
+              <span><strong>24-Hour Cooldown:</strong> Each wallet can claim rewards once every 24 hours to prevent spam farming.</span>
+            </li>
+            <li className="flex items-start space-x-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold mt-1.5 shrink-0"></span>
+              <span><strong>Cumulative Activity:</strong> Posts authored and tips received during the cooldown accumulate automatically into your next claim.</span>
+            </li>
+            <li className="flex items-start space-x-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold mt-1.5 shrink-0"></span>
+              <span><strong>Non-Dilutive Minting:</strong> Rewards are minted directly from <code className="font-mono text-main">RewardDistributor.sol</code> to your connected address.</span>
+            </li>
+          </ul>
         </div>
 
       </main>
 
       <Footer />
 
+      {/* Modals */}
       <CreatePostModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
       />
+
       <FaucetModal
         isOpen={isFaucetOpen}
         onClose={() => setIsFaucetOpen(false)}

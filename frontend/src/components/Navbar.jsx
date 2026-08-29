@@ -11,7 +11,7 @@ import { formatUnits } from 'viem';
 import {
   Coins,
   Sparkles,
-  MessageSquarePlus,
+  PenSquare,
   Trophy,
   Gift,
   User,
@@ -19,18 +19,9 @@ import {
   ExternalLink,
   ChevronDown,
   Globe,
-  Droplets,
-  ArrowLeftRight,
-  ShieldCheck,
-  Code2,
-  Github,
-  Compass,
   Wallet,
   Menu,
   X,
-  AlertTriangle,
-  Search,
-  BookOpen,
   Check,
 } from 'lucide-react';
 
@@ -90,415 +81,158 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
 
   const isWrongChain = isConnected && chain && chain.id !== 968 && chain.id !== 677;
 
-  const ecosystemLinks = [
-    {
-      category: 'Ecosystem & Tools',
-      items: [
-        {
-          name: 'Official Website',
-          href: 'https://www.botchain.ai',
-          desc: 'High-performance AI & DePIN L1',
-          icon: Globe,
-        },
-        {
-          name: 'BOT Faucet',
-          href: 'https://faucet.botchain.ai',
-          desc: 'Claim free BOT',
-          icon: Droplets,
-        },
-        {
-          name: 'BDEX Swap',
-          href: 'https://dex.botchain.ai/#/swap',
-          desc: 'Decentralized exchange & liquidity',
-          icon: ArrowLeftRight,
-        },
-        {
-          name: 'Cross-Chain Bridge',
-          href: 'https://bridge.botchain.ai',
-          desc: 'Transfer assets across chains',
-          icon: ShieldCheck,
-        },
-        {
-          name: 'BOT Wallet',
-          href: 'https://wallet.botchain.ai',
-          desc: 'BOT Chain native wallet',
-          icon: Wallet,
-        },
-        {
-          name: 'Ecosystem DApps',
-          href: 'https://www.botchain.ai/ecosystem',
-          desc: 'Explore AI & SocialFi applications',
-          icon: Compass,
-        },
-        {
-          name: 'BOT Scan Explorer',
-          href: 'https://scan.botchain.ai',
-          desc: 'Verify transactions & contracts',
-          icon: Search,
-        },
-        {
-          name: 'Developer Docs',
-          href: 'https://dev-docs.botchain.ai/docs/Developers/quick-guide/',
-          desc: 'Build on BOT Chain L1',
-          icon: BookOpen,
-        },
-        {
-          name: 'Official GitHub',
-          href: 'https://github.com/BOTChain-bot',
-          desc: 'Open-source repositories',
-          icon: Github,
-        },
-      ],
-    },
-  ];
-
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-[#090C15]/85 border-b border-[#1E293B] shadow-lg shadow-black/20">
+    <header className="sticky top-0 z-40 w-full border-b border-line bg-base/95 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* LEFT: Brand / Logo */}
-          <div className="flex items-center space-x-3">
-            <Link
-              href="/"
-              className="flex items-center space-x-2.5 group transition-transform active:scale-95"
-            >
-              <div className="relative w-8 h-8 rounded-full bg-gradient-to-br from-[#00F5A0] via-[#00D9F5] to-[#6366F1] flex items-center justify-center shadow-lg shadow-[#00F5A0]/20 group-hover:scale-105 transition-transform duration-200">
-                <span className="font-mono font-extrabold text-[#090C15] text-sm">X</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="font-grotesk font-black text-base sm:text-lg tracking-tight bg-gradient-to-r from-[#F3F4F6] via-[#E2E8F0] to-[#94A3B8] bg-clip-text text-transparent group-hover:from-[#00F5A0] group-hover:to-[#00D9F5] transition-all">
-                  X-MOOD
-                </span>
-                <span className="hidden sm:inline font-grotesk font-semibold text-xs sm:text-sm text-[#94A3B8]">
-                  Stream
-                </span>
-              </div>
-            </Link>
-
-            {/* INTERACTIVE NETWORK SELECTOR DROPDOWN (Mainnet 677 vs Testnet 968) */}
-            <div className="relative" ref={networkRef}>
-              <button
-                onClick={() => setIsNetworkMenuOpen(!isNetworkMenuOpen)}
-                className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono transition-all border shadow-sm ${
-                  chain?.id === 968
-                    ? 'bg-[#F59E0B]/15 border-[#F59E0B]/50 text-[#F59E0B] hover:bg-[#F59E0B]/25'
-                    : isWrongChain
-                    ? 'bg-red-500/20 border-red-500 text-red-400 hover:bg-red-500/30'
-                    : 'bg-[#0E131F] border-[#1E293B] hover:border-[#00F5A0]/50 text-[#00F5A0]'
-                }`}
-                title="Click to switch between BOT Chain Mainnet & Testnet"
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                    chain?.id === 968
-                      ? 'bg-[#F59E0B]'
-                      : isWrongChain
-                      ? 'bg-red-500'
-                      : 'bg-[#00F5A0]'
-                  }`}
-                ></span>
-                <span className="font-semibold">
-                  {chain?.id === 968
-                    ? 'BOT Testnet'
-                    : chain?.id === 677
-                    ? 'BOT Mainnet'
-                    : chain?.name || 'BOT Mainnet'}
-                </span>
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${
-                    isNetworkMenuOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-
-              {/* Dropdown Menu */}
-              {isNetworkMenuOpen && (
-                <div className="absolute left-0 mt-2 w-64 rounded-2xl bg-[#090C15]/95 border border-[#1E293B] backdrop-blur-xl shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[#64748B] border-b border-[#1E293B]">
-                    Select BOT Chain Network
-                  </div>
-
-                  {/* Option 1: BOT Chain Mainnet */}
-                  <button
-                    onClick={() => {
-                      if (switchChain) switchChain({ chainId: 677 });
-                      setIsNetworkMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all group ${
-                      chain?.id === 677 || (!isConnected && CONTRACT_ADDRESSES.chainId === 677)
-                        ? 'bg-[#00F5A0]/10 border border-[#00F5A0]/30 text-[#F3F4F6]'
-                        : 'hover:bg-[#182032] text-[#94A3B8] hover:text-[#F3F4F6]'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <div className="w-2 h-2 rounded-full bg-[#00F5A0] shadow-sm shadow-[#00F5A0]"></div>
-                      <div>
-                        <div className="font-grotesk font-bold text-xs flex items-center space-x-1.5 text-[#F3F4F6]">
-                          <span>BOT Chain Mainnet</span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#00F5A0]/20 text-[#00F5A0] font-bold">
-                            Live
-                          </span>
-                        </div>
-                        <div className="text-[10px] font-mono text-[#64748B]">Chain ID: 677</div>
-                      </div>
-                    </div>
-                    {(chain?.id === 677 || (!isConnected && CONTRACT_ADDRESSES.chainId === 677)) && (
-                      <Check className="w-4 h-4 text-[#00F5A0]" />
-                    )}
-                  </button>
-
-                  {/* Option 2: BOT Chain Testnet */}
-                  <button
-                    onClick={() => {
-                      if (switchChain) switchChain({ chainId: 968 });
-                      setIsNetworkMenuOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all group ${
-                      chain?.id === 968
-                        ? 'bg-[#F59E0B]/10 border border-[#F59E0B]/30 text-[#F3F4F6]'
-                        : 'hover:bg-[#182032] text-[#94A3B8] hover:text-[#F3F4F6]'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <div className="w-2 h-2 rounded-full bg-[#F59E0B] shadow-sm shadow-[#F59E0B]"></div>
-                      <div>
-                        <div className="font-grotesk font-bold text-xs flex items-center space-x-1.5 text-[#F3F4F6]">
-                          <span>BOT Chain Testnet</span>
-                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#F59E0B]/20 text-[#F59E0B] font-bold">
-                            Test
-                          </span>
-                        </div>
-                        <div className="text-[10px] font-mono text-[#64748B]">Chain ID: 968 (Bohr)</div>
-                      </div>
-                    </div>
-                    {chain?.id === 968 && (
-                      <Check className="w-4 h-4 text-[#F59E0B]" />
-                    )}
-                  </button>
-                </div>
-              )}
+        
+        {/* Left: Brand Identity */}
+        <div className="flex items-center space-x-8">
+          <Link href="/" className="flex items-center space-x-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-surface border border-line flex items-center justify-center text-main font-display font-bold text-sm group-hover:border-gold transition-colors">
+              X
             </div>
-          </div>
-
-          {/* CENTER: Navigation Links & Ecosystem Dropdown (Desktop) */}
-          <div className="hidden lg:flex items-center space-x-2">
-            <nav className="flex items-center space-x-1 bg-[#0E131F] border border-[#1E293B] p-1 rounded-xl">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg font-grotesk text-xs font-semibold transition-all ${
-                      isActive
-                        ? 'bg-[#182032] text-[#00F5A0] shadow-sm border border-[#1E293B]'
-                        : 'text-[#94A3B8] hover:text-[#F3F4F6] hover:bg-[#182032]/50'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* BOT Chain Ecosystem Dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setIsEcosystemOpen(!isEcosystemOpen)}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border text-xs font-grotesk font-semibold transition-all ${
-                  isEcosystemOpen
-                    ? 'bg-[#182032] border-[#00F5A0]/60 text-[#00F5A0]'
-                    : 'bg-[#0E131F] border-[#1E293B] text-[#94A3B8] hover:text-[#F3F4F6] hover:border-[#00F5A0]/40'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5 text-[#00F5A0]" />
-                <span>Ecosystem</span>
-                <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                    isEcosystemOpen ? 'rotate-180 text-[#00F5A0]' : ''
-                  }`}
-                />
-              </button>
-
-              {/* Dropdown Menu */}
-              {isEcosystemOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-[#0E131F] border border-[#1E293B] rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150 backdrop-blur-2xl">
-                  <div className="px-2 py-1.5 mb-2 border-b border-[#1E293B] flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-[#00F5A0] uppercase font-bold tracking-wider">
-                      BOT Chain Hub
-                    </span>
-                    <span className="text-[10px] font-mono bg-[#182032] px-1.5 py-0.5 rounded text-[#94A3B8]">
-                      Native Coin: BOT
-                    </span>
-                  </div>
-
-                  <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-                    {ecosystemLinks.map((group) => (
-                      <div key={group.category} className="space-y-1">
-                        <div className="text-[10px] font-mono uppercase text-[#64748B] px-2 font-semibold">
-                          {group.category}
-                        </div>
-                        {group.items.map((link) => {
-                          const LinkIcon = link.icon;
-                          return (
-                            <a
-                              key={link.name}
-                              href={link.href}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={() => setIsEcosystemOpen(false)}
-                              className="flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-[#182032] text-[#F3F4F6] group transition-colors"
-                            >
-                              <div className="flex items-center space-x-2.5">
-                                <div className="p-1.5 rounded-lg bg-[#090C15] text-[#00F5A0] group-hover:bg-[#00F5A0]/10 transition-colors">
-                                  <LinkIcon className="w-3.5 h-3.5" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-xs font-grotesk font-semibold text-[#F3F4F6] group-hover:text-[#00F5A0] transition-colors">
-                                    {link.name}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-[#94A3B8]">
-                                    {link.desc}
-                                  </span>
-                                </div>
-                              </div>
-                              <ExternalLink className="w-3 h-3 text-[#64748B] group-hover:text-[#00F5A0] transition-colors" />
-                            </a>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="flex flex-col">
+              <span className="font-display font-bold text-sm tracking-tight text-main">
+                X-Mood Stream
+              </span>
+              <span className="font-mono text-[10px] text-sub uppercase tracking-wider">
+                SocialFi Ledger
+              </span>
             </div>
-          </div>
+          </Link>
 
-          {/* RIGHT: Balances, Faucet, Post CTA, Connect */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
-            
-            {/* Quick Balances (Desktop 2xl / xl) */}
-            {isConnected && (
-              <div className="hidden 2xl:flex items-center space-x-2 bg-[#0E131F] border border-[#1E293B] px-2.5 py-1 rounded-xl text-xs font-mono">
-                <span className="text-[#F59E0B] font-bold">
-                  {usdtBalance !== undefined ? parseFloat(formatUnits(usdtBalance, 6)).toFixed(1) : '0'} <span className="text-[10px] font-normal text-[#94A3B8]">USDT</span>
-                </span>
-                <span className="text-[#1E293B]">/</span>
-                <span className="text-[#00F5A0] font-bold">
-                  {xmsBalance !== undefined ? parseFloat(formatUnits(xmsBalance, 18)).toFixed(1) : '0'} <span className="text-[10px] font-normal text-[#94A3B8]">XMS</span>
-                </span>
-              </div>
-            )}
-
-            {/* Faucet Button */}
-            {onOpenFaucet && (
-              <button
-                onClick={onOpenFaucet}
-                className="flex items-center space-x-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-[#0E131F] border border-[#F59E0B]/40 text-[#F59E0B] hover:bg-[#F59E0B]/10 text-xs font-mono font-medium transition-all"
-                title="Get 100 testnet mUSDT"
-              >
-                <Coins className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">+100 Faucet</span>
-              </button>
-            )}
-
-            {/* Create Post Button */}
-            {onOpenCreate && (
-              <button
-                onClick={onOpenCreate}
-                className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#00F5A0] via-[#00D9F5] to-[#6366F1] text-[#090C15] font-grotesk font-bold text-xs uppercase tracking-wider hover:opacity-95 shadow-md shadow-[#00F5A0]/20 transition-all hover:scale-[1.02]"
-              >
-                <MessageSquarePlus className="w-3.5 h-3.5 text-[#090C15]" />
-                <span>Post</span>
-              </button>
-            )}
-
-            {/* RainbowKit Connect Button */}
-            <ConnectButton.Custom>
-              {({
-                account,
-                chain: activeChain,
-                openAccountModal,
-                openChainModal,
-                openConnectModal,
-                mounted,
-              }) => {
-                const ready = mounted;
-                const connected = ready && account && activeChain;
-
-                if (!ready) return null;
-
-                if (!connected) {
-                  return (
-                    <button
-                      onClick={openConnectModal}
-                      type="button"
-                      className="px-3 sm:px-4 py-1.5 rounded-xl bg-[#0E131F] border border-[#00F5A0]/50 text-[#00F5A0] hover:bg-[#00F5A0] hover:text-[#090C15] font-grotesk font-bold text-xs transition-all shadow-sm"
-                    >
-                      Connect
-                    </button>
-                  );
-                }
-
-                if (activeChain.unsupported) {
-                  return (
-                    <button
-                      onClick={openChainModal}
-                      type="button"
-                      className="px-2.5 py-1 rounded-xl bg-red-900/60 border border-red-500 text-red-200 font-mono text-xs font-semibold"
-                    >
-                      Switch Chain
-                    </button>
-                  );
-                }
-
-                return (
-                  <button
-                    onClick={openAccountModal}
-                    type="button"
-                    className="flex items-center space-x-1.5 bg-[#0E131F] border border-[#1E293B] hover:border-[#00F5A0]/50 px-2.5 py-1.5 rounded-xl transition-all text-xs font-mono text-[#F3F4F6]"
-                  >
-                    <span className="w-2 h-2 rounded-full bg-[#00F5A0] animate-pulse"></span>
-                    <span>{account.displayName}</span>
-                  </button>
-                );
-              }}
-            </ConnectButton.Custom>
-
-          </div>
+          {/* Desktop Nav Tabs */}
+          <nav className="hidden md:flex items-center space-x-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-surface text-main font-semibold border border-line'
+                      : 'text-sub hover:text-main hover:bg-surface/50'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold' : 'text-sub'}`} />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Mobile / Tablet Navigation Row */}
-        <div className="flex lg:hidden items-center justify-around py-2 border-t border-[#1E293B]/80 text-xs">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center space-x-1 px-2 py-1 rounded-lg font-grotesk font-medium transition-colors ${
-                  isActive ? 'bg-[#182032] text-[#00F5A0]' : 'text-[#94A3B8] hover:text-[#F3F4F6]'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
+        {/* Right: Actions & Wallet */}
+        <div className="flex items-center space-x-2.5">
           
-          <a
-            href="https://scan.botchain.ai"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center space-x-1 px-2 py-1 rounded-lg text-[#00F5A0] bg-[#182032] border border-[#1E293B] font-mono text-[11px]"
+          {/* Quick Broadcast Button */}
+          <button
+            onClick={onOpenCreate}
+            className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface hover:bg-elevated border border-line text-main text-xs font-medium transition-colors"
           >
-            <Compass className="w-3 h-3" />
-            <span>BotScan</span>
-          </a>
-        </div>
+            <PenSquare className="w-3.5 h-3.5 text-gold" />
+            <span>Broadcast</span>
+          </button>
 
+          {/* Faucet Trigger */}
+          <button
+            onClick={onOpenFaucet}
+            className="hidden lg:flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-surface hover:bg-elevated border border-line text-sub hover:text-main text-xs font-mono transition-colors"
+            title="Get testnet mUSDT tokens"
+          >
+            <Coins className="w-3.5 h-3.5 text-gold" />
+            <span>Faucet</span>
+          </button>
+
+          {/* Token Balances (When Connected) */}
+          {isConnected && (
+            <div className="hidden xl:flex items-center space-x-2 px-2.5 py-1 rounded-lg bg-surface border border-line text-xs font-mono">
+              <span className="text-gold font-medium">
+                {usdtBalance !== undefined ? parseFloat(formatUnits(usdtBalance, 6)).toFixed(1) : '0.0'} <span className="text-[10px] text-sub">USDT</span>
+              </span>
+              <span className="text-line">•</span>
+              <span className="text-glacier font-medium">
+                {xmsBalance !== undefined ? parseFloat(formatUnits(xmsBalance, 18)).toFixed(1) : '0.0'} <span className="text-[10px] text-sub">XMS</span>
+              </span>
+            </div>
+          )}
+
+          {/* RainbowKit Wallet Connect */}
+          <div className="connect-button-wrapper">
+            <ConnectButton
+              showBalance={false}
+              chainStatus="icon"
+              accountStatus={{
+                smallScreen: 'avatar',
+                largeScreen: 'full',
+              }}
+            />
+          </div>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-1.5 rounded-lg bg-surface border border-line text-sub hover:text-main transition-colors"
+            aria-label="Toggle menu"
+          >
+            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
+
+        </div>
+      </div>
+
+      {/* Mobile Drawer */}
+      {isMobileMenuOpen && (
+        <div ref={mobileMenuRef} className="md:hidden border-t border-line bg-surface p-4 space-y-3">
+          <nav className="grid grid-cols-2 gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center space-x-2 p-2.5 rounded-lg text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-elevated text-main font-semibold border border-line'
+                      : 'text-sub hover:text-main hover:bg-elevated/50'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-gold' : 'text-sub'}`} />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="pt-2 border-t border-line flex gap-2">
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onOpenCreate();
+              }}
+              className="flex-1 py-2 rounded-lg bg-elevated border border-line text-main text-xs font-medium flex items-center justify-center space-x-1.5"
+            >
+              <PenSquare className="w-3.5 h-3.5 text-gold" />
+              <span>Broadcast</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onOpenFaucet();
+              }}
+              className="flex-1 py-2 rounded-lg bg-elevated border border-line text-main text-xs font-medium flex items-center justify-center space-x-1.5"
+            >
+              <Coins className="w-3.5 h-3.5 text-gold" />
+              <span>Get mUSDT</span>
+            </button>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
