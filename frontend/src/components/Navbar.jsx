@@ -18,6 +18,8 @@ import {
   Radio,
   Menu,
   X,
+  ChevronDown,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function Navbar({ onOpenCreate, onOpenFaucet }) {
@@ -44,7 +46,7 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
     abi: MOCK_USDT_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 4000 },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   // Read XMS balance
@@ -53,7 +55,7 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
     abi: REWARD_TOKEN_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address, refetchInterval: 4000 },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   const navItems = [
@@ -64,119 +66,178 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
   ];
 
   const formatBalance = (val, decimals = 6) => {
-    if (val === undefined || val === null) return '0.00';
+    if (val === undefined || val === null) return '0.0';
     const num = parseFloat(formatUnits(val, decimals));
     if (num >= 1_000_000) {
-      return (num / 1_000_000).toFixed(2) + 'M';
+      return (num / 1_000_000).toFixed(1) + 'M';
     }
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 1,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 1,
     }).format(num);
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-line bg-base/95 backdrop-blur-xl transition-all">
-      <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+    <header className="sticky top-0 z-40 w-full border-b border-line bg-base/95 backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
         
-        {/* Left: Brand Identity + Desktop Nav Links */}
-        <div className="flex items-center space-x-3 sm:space-x-6 min-w-0">
-          <Link href="/" className="flex items-center space-x-2.5 shrink-0 group">
-            <div className="w-8 h-8 rounded-lg bg-surface border border-line flex items-center justify-center text-gold font-display font-black text-sm shadow-sm group-hover:border-gold transition-colors">
-              X
+        {/* 1. Left: Brand */}
+        <Link href="/" className="flex items-center space-x-2.5 shrink-0 group">
+          <div className="w-8 h-8 rounded-lg bg-surface border border-line flex items-center justify-center text-gold font-display font-black text-sm shadow-sm group-hover:border-gold transition-colors">
+            X
+          </div>
+          <div className="flex flex-col">
+            <span className="font-display font-bold text-xs sm:text-sm tracking-tight text-main leading-tight whitespace-nowrap">
+              X-MOOD STREAM
+            </span>
+            <div className="hidden sm:flex items-center space-x-1 text-[10px] font-mono text-sub leading-tight">
+              <span className="w-1.5 h-1.5 rounded-full bg-glacier"></span>
+              <span>{contracts.chainName}</span>
             </div>
-            <div className="hidden sm:flex flex-col">
-              <span className="font-display font-bold text-xs sm:text-sm tracking-tight text-main leading-none">
-                X-MOOD STREAM
-              </span>
-              <div className="flex items-center space-x-1 text-[10px] font-mono text-sub leading-tight mt-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-glacier"></span>
-                <span className="truncate max-w-[110px]">{contracts.chainName}</span>
-              </div>
-            </div>
-          </Link>
+          </div>
+        </Link>
 
-          {/* Desktop Nav Bar (visible on md+) */}
-          <nav className="hidden md:flex items-center p-1 rounded-xl bg-surface/80 border border-line shadow-xs shrink-0">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center space-x-1.5 px-2.5 lg:px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                    isActive
-                      ? 'bg-elevated text-main font-semibold border border-line shadow-xs'
-                      : 'text-sub hover:text-main hover:bg-elevated/40'
-                  }`}
-                >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold' : 'text-sub'}`} />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+        {/* 2. Center: Desktop Nav Pill Segment */}
+        <nav className="hidden lg:flex items-center p-1 rounded-xl bg-surface/90 border border-line shadow-xs shrink-0">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  isActive
+                    ? 'bg-elevated text-main font-semibold border border-line shadow-xs'
+                    : 'text-sub hover:text-main hover:bg-elevated/40'
+                }`}
+              >
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-gold' : 'text-sub'}`} />
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-        {/* Right: Actions, Balance Capsule & Wallet */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+        {/* 3. Right Action Cluster */}
+        <div className="flex items-center space-x-2 shrink-0">
           
-          {/* Connected Balances Capsule (Visible on 2xl+ to avoid crowding on standard screens) */}
-          {isConnected && (
-            <div className="hidden 2xl:flex items-center space-x-2.5 px-3 py-1 rounded-lg bg-surface border border-line font-mono text-xs shadow-xs">
-              <div className="flex items-center space-x-1.5" title="mUSDT Tip Balance">
-                <span className="w-1.5 h-1.5 rounded-full bg-gold"></span>
-                <span className="font-semibold text-main">{formatBalance(usdtBalance, 6)}</span>
-                <span className="text-[10px] text-sub">USDT</span>
-              </div>
-              <span className="text-line">|</span>
-              <div className="flex items-center space-x-1.5" title="Claimed $XMS Rewards">
-                <span className="w-1.5 h-1.5 rounded-full bg-glacier"></span>
-                <span className="font-semibold text-glacier">{formatBalance(xmsBalance, 18)}</span>
-                <span className="text-[10px] text-sub">XMS</span>
-              </div>
-            </div>
-          )}
-
-          {/* Faucet Button (Visible on xl+) */}
+          {/* Quick Faucet Icon Button (Desktop) */}
           <button
             onClick={onOpenFaucet}
-            className="hidden xl:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-surface hover:bg-elevated border border-line text-sub hover:text-main text-xs font-mono transition-colors"
+            className="hidden md:flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-surface hover:bg-elevated border border-line text-sub hover:text-main text-xs font-mono transition-colors"
             title="Get testnet mUSDT tokens"
           >
             <Coins className="w-3.5 h-3.5 text-gold" />
             <span className="text-[11px]">Faucet</span>
           </button>
 
-          {/* Quick Broadcast Button */}
+          {/* Broadcast CTA Button */}
           <button
             onClick={onOpenCreate}
-            className="flex items-center space-x-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gold hover:bg-gold-hover text-base font-semibold text-xs shadow-xs transition-all active:scale-95 shrink-0"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-gold hover:bg-gold-hover text-base font-semibold text-xs shadow-xs transition-all active:scale-95 shrink-0"
           >
             <PenSquare className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Broadcast</span>
           </button>
 
-          {/* RainbowKit Wallet Connect */}
-          <div className="connect-wrapper shrink-0">
-            <ConnectButton
-              showBalance={false}
-              chainStatus={{
-                smallScreen: 'none',
-                largeScreen: 'icon',
+          {/* Custom RainbowKit Connect Button (100% Responsive & Zero Clipping) */}
+          <div className="shrink-0">
+            <ConnectButton.Custom>
+              {({
+                account,
+                chain: connectedChain,
+                openAccountModal,
+                openChainModal,
+                openConnectModal,
+                mounted,
+              }) => {
+                const ready = mounted;
+                const connected = ready && account && connectedChain;
+
+                if (!ready) {
+                  return (
+                    <div className="h-8 w-24 rounded-lg bg-surface animate-pulse" />
+                  );
+                }
+
+                if (!connected) {
+                  return (
+                    <button
+                      onClick={openConnectModal}
+                      type="button"
+                      className="px-3.5 py-1.5 rounded-lg bg-surface hover:bg-elevated border border-line text-main font-display font-semibold text-xs shadow-xs transition-colors"
+                    >
+                      Connect Wallet
+                    </button>
+                  );
+                }
+
+                if (connectedChain.unsupported) {
+                  return (
+                    <button
+                      onClick={openChainModal}
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg bg-red-950/60 border border-red-800 text-red-300 text-xs font-mono flex items-center space-x-1.5"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Wrong Network</span>
+                    </button>
+                  );
+                }
+
+                return (
+                  <div className="flex items-center space-x-1.5">
+                    
+                    {/* Chain Switcher Button */}
+                    <button
+                      onClick={openChainModal}
+                      type="button"
+                      className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-surface hover:bg-elevated border border-line text-main text-xs font-mono transition-colors"
+                      title={connectedChain.name}
+                    >
+                      {connectedChain.hasIcon && (
+                        <div
+                          className="w-3.5 h-3.5 rounded-full overflow-hidden shrink-0"
+                          style={{ background: connectedChain.iconBackground }}
+                        >
+                          {connectedChain.iconUrl && (
+                            <img
+                              alt={connectedChain.name ?? 'Chain icon'}
+                              src={connectedChain.iconUrl}
+                              className="w-3.5 h-3.5"
+                            />
+                          )}
+                        </div>
+                      )}
+                      <span className="hidden xl:inline max-w-[90px] truncate text-[11px]">
+                        {connectedChain.name}
+                      </span>
+                      <ChevronDown className="w-3 h-3 text-sub" />
+                    </button>
+
+                    {/* Account Button */}
+                    <button
+                      onClick={openAccountModal}
+                      type="button"
+                      className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-surface hover:bg-elevated border border-line text-main text-xs font-mono shadow-xs transition-colors"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-gold shrink-0"></div>
+                      <span className="font-semibold text-[11px] sm:text-xs">
+                        {account.displayName}
+                      </span>
+                    </button>
+
+                  </div>
+                );
               }}
-              accountStatus={{
-                smallScreen: 'avatar',
-                largeScreen: 'full',
-              }}
-            />
+            </ConnectButton.Custom>
           </div>
 
-          {/* Mobile/Tablet Menu Toggle (visible on < md) */}
+          {/* Mobile/Tablet Menu Button (Visible on < lg) */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-1.5 rounded-lg bg-surface border border-line text-sub hover:text-main transition-colors shrink-0"
+            className="lg:hidden p-2 rounded-lg bg-surface border border-line text-sub hover:text-main transition-colors shrink-0"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -185,9 +246,9 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
         </div>
       </div>
 
-      {/* Mobile / Tablet Drawer (When toggled) */}
+      {/* Mobile Drawer (When Open) */}
       {isMobileMenuOpen && (
-        <div ref={mobileMenuRef} className="md:hidden border-t border-line bg-surface/98 backdrop-blur-2xl p-4 space-y-3 shadow-xl">
+        <div ref={mobileMenuRef} className="lg:hidden border-t border-line bg-surface/98 backdrop-blur-2xl p-4 space-y-3 shadow-2xl">
           <nav className="grid grid-cols-2 gap-2">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -210,7 +271,7 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
             })}
           </nav>
 
-          {/* Mobile Balances Display */}
+          {/* Balances Display in Drawer */}
           {isConnected && (
             <div className="p-3 rounded-lg bg-base border border-line flex items-center justify-between font-mono text-xs">
               <div className="flex items-center space-x-1.5">
