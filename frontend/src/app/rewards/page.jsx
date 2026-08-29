@@ -6,7 +6,7 @@ import Footer from '../../components/Footer';
 import CreatePostModal from '../../components/CreatePostModal';
 import FaucetModal from '../../components/FaucetModal';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
-import { CONTRACT_ADDRESSES } from '../../contracts/addresses';
+import { CONTRACT_ADDRESSES, getContractAddresses } from '../../contracts/addresses';
 import { REWARD_DISTRIBUTOR_ABI, REWARD_TOKEN_ABI, CORE_ABI, TIP_VAULT_ABI } from '../../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -25,62 +25,63 @@ import {
 } from 'lucide-react';
 
 export default function RewardsPage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
+  const contracts = getContractAddresses(chain?.id);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isFaucetOpen, setIsFaucetOpen] = useState(false);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
   // Read pending reward
   const { data: pendingReward, refetch: refetchPending } = useReadContract({
-    address: CONTRACT_ADDRESSES.RewardDistributor,
+    address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'calculatePendingReward',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   // Read canClaim status
   const { data: isEligibleToClaim, refetch: refetchCanClaim } = useReadContract({
-    address: CONTRACT_ADDRESSES.RewardDistributor,
+    address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'canClaim',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   // Read time until next claim
   const { data: secondsRemaining, refetch: refetchTimer } = useReadContract({
-    address: CONTRACT_ADDRESSES.RewardDistributor,
+    address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'timeUntilNextClaim',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   // Read total rewards claimed by user
   const { data: totalClaimed, refetch: refetchTotalClaimed } = useReadContract({
-    address: CONTRACT_ADDRESSES.RewardDistributor,
+    address: contracts.RewardDistributor,
     abi: REWARD_DISTRIBUTOR_ABI,
     functionName: 'totalRewardsClaimed',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   // Read current posts and tips for quest indicators
   const { data: userPostsCount } = useReadContract({
-    address: CONTRACT_ADDRESSES.XMoodStreamCore,
+    address: contracts.XMoodStreamCore,
     abi: CORE_ABI,
     functionName: 'getUserPostCount',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   const { data: tipsReceived } = useReadContract({
-    address: CONTRACT_ADDRESSES.TipVault,
+    address: contracts.TipVault,
     abi: TIP_VAULT_ABI,
     functionName: 'totalTipsReceived',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   const {
@@ -124,10 +125,10 @@ export default function RewardsPage() {
     }
 
     try {
-      toast.loading('Distributing $XMS on BOT Chain...', { id: 'claim-reward' });
+      toast.loading(`Distributing $XMS on ${contracts.chainName}...`, { id: 'claim-reward' });
 
       await writeContractAsync({
-        address: CONTRACT_ADDRESSES.RewardDistributor,
+        address: contracts.RewardDistributor,
         abi: REWARD_DISTRIBUTOR_ABI,
         functionName: 'claimReward',
       });
@@ -198,7 +199,7 @@ export default function RewardsPage() {
             <div className="lg:col-span-7 space-y-3">
               <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#00F5A0]/10 border border-[#00F5A0]/30 text-xs font-mono text-[#00F5A0]">
                 <ShieldCheck className="w-4 h-4 text-[#00F5A0]" />
-                <span>{CONTRACT_ADDRESSES.chainName} Reward Pool</span>
+                <span>{contracts.chainName} Reward Pool</span>
               </div>
 
               <div>

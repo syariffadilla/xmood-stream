@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
-import { CONTRACT_ADDRESSES } from '../contracts/addresses';
+import { CONTRACT_ADDRESSES, getContractAddresses } from '../contracts/addresses';
 import { MOCK_USDT_ABI } from '../contracts/abis';
 import { parseUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -13,7 +13,8 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
   const [canClaim, setCanClaim] = useState(true);
   const [remainingSecs, setRemainingSecs] = useState(0);
   const [clientIp, setClientIp] = useState('');
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
+  const contracts = getContractAddresses(chain?.id);
   const { writeContractAsync } = useWriteContract();
 
   // Check IP rate-limit status from API
@@ -70,10 +71,10 @@ export default function FaucetModal({ isOpen, onClose, onMintSuccess }) {
 
     setIsMinting(true);
     try {
-      toast.loading(`Minting 100 mUSDT on ${CONTRACT_ADDRESSES.chainName}...`, { id: 'faucet-mint' });
+      toast.loading(`Minting 100 mUSDT on ${contracts.chainName}...`, { id: 'faucet-mint' });
 
       await writeContractAsync({
-        address: CONTRACT_ADDRESSES.MockUSDT,
+        address: contracts.MockUSDT,
         abi: MOCK_USDT_ABI,
         functionName: 'mint',
         args: [address, parseUnits('100', 6)],

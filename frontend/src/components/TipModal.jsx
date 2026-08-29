@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { CONTRACT_ADDRESSES } from '../contracts/addresses';
+import { CONTRACT_ADDRESSES, getContractAddresses } from '../contracts/addresses';
 import { MOCK_USDT_ABI, TIP_VAULT_ABI } from '../contracts/abis';
 import { formatUnits, parseUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -11,11 +11,12 @@ import { X, Heart, Shield, Loader2, DollarSign } from 'lucide-react';
 export default function TipModal({ isOpen, onClose, post, onTipSuccess }) {
   const [tipAmount, setTipAmount] = useState('5');
   const [isProcessing, setIsProcessing] = useState(false);
-  const { address } = useAccount();
+  const { address, chain } = useAccount();
+  const contracts = getContractAddresses(chain?.id);
 
   // Read current user mUSDT balance
   const { data: usdtBalance, refetch: refetchBalance } = useReadContract({
-    address: CONTRACT_ADDRESSES.MockUSDT,
+    address: contracts.MockUSDT,
     abi: MOCK_USDT_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
@@ -24,10 +25,10 @@ export default function TipModal({ isOpen, onClose, post, onTipSuccess }) {
 
   // Read current allowance for TipVault
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: CONTRACT_ADDRESSES.MockUSDT,
+    address: contracts.MockUSDT,
     abi: MOCK_USDT_ABI,
     functionName: 'allowance',
-    args: address ? [address, CONTRACT_ADDRESSES.TipVault] : undefined,
+    args: address ? [address, contracts.TipVault] : undefined,
     query: { enabled: !!address },
   });
 
@@ -70,10 +71,10 @@ export default function TipModal({ isOpen, onClose, post, onTipSuccess }) {
       if (currentAllowance < amountInUnits) {
         toast.loading('Step 1/2: Approving mUSDT spend...', { id: 'tip-process' });
         const approveTx = await writeContractAsync({
-          address: CONTRACT_ADDRESSES.MockUSDT,
+          address: contracts.MockUSDT,
           abi: MOCK_USDT_ABI,
           functionName: 'approve',
-          args: [CONTRACT_ADDRESSES.TipVault, parseUnits('1000000', 6)], // approve large allowance for seamless UX
+          args: [contracts.TipVault, parseUnits('1000000', 6)], // approve large allowance for seamless UX
         });
         toast.loading('Mining approval on-chain...', { id: 'tip-process' });
         await new Promise((r) => setTimeout(r, 3000));
@@ -83,7 +84,7 @@ export default function TipModal({ isOpen, onClose, post, onTipSuccess }) {
       // Step 2: Tip the post via TipVault
       toast.loading(`Step 2/2: Sending ${tipAmount} mUSDT tip...`, { id: 'tip-process' });
       const tipTx = await writeContractAsync({
-        address: CONTRACT_ADDRESSES.TipVault,
+        address: contracts.TipVault,
         abi: TIP_VAULT_ABI,
         functionName: 'tipPost',
         args: [BigInt(post.id), post.author, amountInUnits],

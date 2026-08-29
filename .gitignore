@@ -47,6 +47,9 @@ X-Mood-Stream-*.docx
 X-Mood-Stream-*.rtf
 check_*.js
 test_*.js
+seed-*.js
+scripts/seed-mainnet.js
+pixel_armory_cover.png
 extracted_guide.txt
 read_guide.ps1
 *Integration Guide*

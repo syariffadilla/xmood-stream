@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { CONTRACT_ADDRESSES } from '../contracts/addresses';
+import { CONTRACT_ADDRESSES, getContractAddresses } from '../contracts/addresses';
 import { CORE_ABI, REWARD_TOKEN_ABI } from '../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -38,7 +38,8 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
   const [mediaType, setMediaType] = useState('upload'); // 'upload' | 'url'
   const [showMediaInput, setShowMediaInput] = useState(false);
   const [selectedTag, setSelectedTag] = useState('alpha');
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
+  const contracts = getContractAddresses(chain?.id);
   const fileInputRef = React.useRef(null);
 
   const handleImageFileUpload = (e) => {
@@ -121,7 +122,7 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
       toast.loading('Confirming transaction in wallet...', { id: 'create-post' });
 
       await writeContractAsync({
-        address: CONTRACT_ADDRESSES.XMoodStreamCore,
+        address: contracts.XMoodStreamCore,
         abi: CORE_ABI,
         functionName: 'createPost',
         args: [finalPayload],

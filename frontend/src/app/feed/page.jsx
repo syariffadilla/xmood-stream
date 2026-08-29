@@ -7,7 +7,7 @@ import CreatePostModal from '../../components/CreatePostModal';
 import TipModal from '../../components/TipModal';
 import FaucetModal from '../../components/FaucetModal';
 import { useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
-import { CONTRACT_ADDRESSES } from '../../contracts/addresses';
+import { CONTRACT_ADDRESSES, getContractAddresses, parsePostContent } from '../../contracts/addresses';
 import { CORE_ABI, TIP_VAULT_ABI } from '../../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -110,30 +110,19 @@ export default function FeedPage() {
   };
 
   const publicClient = usePublicClient();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { writeContractAsync } = useWriteContract();
+  const contracts = getContractAddresses(chain?.id);
 
-  // Read total posts count
+  // Read total posts count with auto refetch
   const { data: totalPostsCount } = useReadContract({
-    address: CONTRACT_ADDRESSES.XMoodStreamCore,
+    address: contracts.XMoodStreamCore,
     abi: CORE_ABI,
     functionName: 'getTotalPosts',
+    query: {
+      refetchInterval: 4000,
+    },
   });
-
-  // Helper to parse content, tags, and media
-  const parsePostData = (rawText) => {
-    let cleanText = rawText || '';
-    let mediaUrl = null;
-
-    // Check for [media:url] pattern
-    const mediaMatch = cleanText.match(/\[media:(.*?)\]/);
-    if (mediaMatch) {
-      mediaUrl = mediaMatch[1];
-      cleanText = cleanText.replace(/\[media:.*?\]/, '').trim();
-    }
-
-    return { text: cleanText, mediaUrl };
-  };
 
   // Parallel fetcher
   const fetchPostsFromChain = useCallback(async () => {
@@ -141,7 +130,7 @@ export default function FeedPage() {
     setLoading(true);
     try {
       const count = await publicClient.readContract({
-        address: CONTRACT_ADDRESSES.XMoodStreamCore,
+        address: contracts.XMoodStreamCore,
         abi: CORE_ABI,
         functionName: 'getTotalPosts',
       });
@@ -157,20 +146,20 @@ export default function FeedPage() {
           try {
             const [post, postTipAmount] = await Promise.all([
               publicClient.readContract({
-                address: CONTRACT_ADDRESSES.XMoodStreamCore,
+                address: contracts.XMoodStreamCore,
                 abi: CORE_ABI,
                 functionName: 'getPost',
                 args: [BigInt(i)],
               }),
               publicClient.readContract({
-                address: CONTRACT_ADDRESSES.TipVault,
+                address: contracts.TipVault,
                 abi: TIP_VAULT_ABI,
                 functionName: 'postTips',
                 args: [BigInt(i)],
-              }),
+              }).catch(() => 0n),
             ]);
 
-            const parsed = parsePostData(post.contentHash);
+            const parsed = parsePostContent(post.contentHash);
 
             return {
               id: Number(post.id),
@@ -179,7 +168,7 @@ export default function FeedPage() {
               content: parsed.text,
               mediaUrl: parsed.mediaUrl,
               timestamp: Number(post.timestamp),
-              tipsUsdt: parseFloat(formatUnits(postTipAmount, 6)),
+              tipsUsdt: parseFloat(formatUnits(postTipAmount || 0n, 6)),
               isGenesis: false,
             };
           } catch (e) {
@@ -189,50 +178,17 @@ export default function FeedPage() {
       );
 
       const validPosts = fetchedResults.filter(Boolean);
-
-      // Add rich creator demo posts if fewer than 3 posts exist
-      if (validPosts.length < 3) {
-        validPosts.push({
-          id: 902,
-          author: '0x34758c708aca45385162348438899580f78dc150',
-          rawContent: '#Alpha 🚀 Launching our DePIN AI compute node on BOT Chain! Instant transactions and sub-cent gas fees make creator micro-streaming seamless.',
-          content: '#Alpha 🚀 Launching our DePIN AI compute node on BOT Chain! Instant transactions and sub-cent gas fees make creator micro-streaming seamless.',
-          mediaUrl: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80',
-          timestamp: Math.floor(Date.now() / 1000) - 1800,
-          tipsUsdt: 45.0,
-          isGenesis: true,
-        });
-        validPosts.push({
-          id: 901,
-          author: '0x16c5cb15a0ceb9f5dc83b9fe58aa475b0363ddac',
-          rawContent: '#DeFi 📊 SocialFi analytics update: 95% direct tipping vault split is officially outperforming traditional web2 creator models.',
-          content: '#DeFi 📊 SocialFi analytics update: 95% direct tipping vault split is officially outperforming traditional web2 creator models.',
-          mediaUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-          timestamp: Math.floor(Date.now() / 1000) - 5400,
-          tipsUsdt: 20.0,
-          isGenesis: true,
-        });
-        validPosts.push({
-          id: 900,
-          author: '0x00299f76c116d2f03e342e6911e16a892b02c4e3',
-          rawContent: '#NFT 🎨 Generative mood art minted and tied to my on-chain stream. Tip in USDT to unlock the high-res NFT badge!',
-          content: '#NFT 🎨 Generative mood art minted and tied to my on-chain stream. Tip in USDT to unlock the high-res NFT badge!',
-          mediaUrl: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&w=800&q=80',
-          timestamp: Math.floor(Date.now() / 1000) - 10800,
-          tipsUsdt: 15.0,
-          isGenesis: true,
-        });
-      }
-
       setPosts(validPosts);
     } catch (err) {
       console.error('Failed to load posts:', err);
     } finally {
       setLoading(false);
     }
-  }, [publicClient]);
+  }, [publicClient, contracts.XMoodStreamCore, contracts.TipVault]);
 
   useEffect(() => {
+    fetchPostsFromChain();
+  }, [fetchPostsFromChain, totalPostsCount]);
     fetchPostsFromChain();
   }, [fetchPostsFromChain, totalPostsCount]);
 
@@ -257,7 +213,7 @@ export default function FeedPage() {
       toast.loading('Broadcasting to BOT Chain...', { id: 'quick-broadcast' });
 
       await writeContractAsync({
-        address: CONTRACT_ADDRESSES.XMoodStreamCore,
+        address: contracts.XMoodStreamCore,
         abi: CORE_ABI,
         functionName: 'createPost',
         args: [finalPayload],
@@ -469,7 +425,7 @@ export default function FeedPage() {
           <div className="py-16 text-center space-y-3">
             <div className="w-8 h-8 border-2 border-[#00F5A0] border-t-transparent rounded-full animate-spin mx-auto"></div>
             <p className="text-xs font-mono text-[#94A3B8]">
-              Loading verified streams from {CONTRACT_ADDRESSES.chainName}...
+              Loading verified streams from {contracts.chainName}...
             </p>
           </div>
         ) : filteredPosts.length === 0 ? (
@@ -540,12 +496,12 @@ export default function FeedPage() {
                     <span>95% Creator Split</span>
                     <span>•</span>
                     <a
-                      href={`${CONTRACT_ADDRESSES.explorer}/address/${post.author}`}
+                      href={`${contracts.explorer}/address/${post.author}`}
                       target="_blank"
                       rel="noreferrer"
                       className="text-[#94A3B8] hover:text-[#00F5A0] flex items-center space-x-1 transition-colors"
                     >
-                      <span>BotScan</span>
+                      <span>Explorer</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>

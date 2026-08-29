@@ -41,3 +41,24 @@ export const MULTICHAIN_CONTRACTS = {
     RewardDistributor: '0xd8b005D006994cDEDFABf0DF170D0d2C58F27335',
   },
 };
+
+export const getContractAddresses = (chainId) => {
+  if (chainId && MULTICHAIN_CONTRACTS[chainId]) {
+    return MULTICHAIN_CONTRACTS[chainId];
+  }
+  return CONTRACT_ADDRESSES;
+};
+
+export const parsePostContent = (rawText) => {
+  let cleanText = rawText || '';
+  let mediaUrl = null;
+
+  // Check for [media:url] pattern
+  const mediaMatch = cleanText.match(/\[media:(.*?)\]/);
+  if (mediaMatch) {
+    mediaUrl = mediaMatch[1];
+    cleanText = cleanText.replace(/\[media:.*?\]/, '').trim();
+  }
+
+  return { text: cleanText, mediaUrl };
+};

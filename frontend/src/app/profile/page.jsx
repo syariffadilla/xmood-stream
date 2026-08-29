@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../../components/Navbar';
 import Footer from '../../components/Footer';
 import CreatePostModal from '../../components/CreatePostModal';
 import FaucetModal from '../../components/FaucetModal';
 import { useAccount, useReadContract, usePublicClient, useBalance } from 'wagmi';
-import { CONTRACT_ADDRESSES } from '../../contracts/addresses';
+import { CONTRACT_ADDRESSES, getContractAddresses, parsePostContent } from '../../contracts/addresses';
 import { MOCK_USDT_ABI, REWARD_TOKEN_ABI, CORE_ABI, TIP_VAULT_ABI } from '../../contracts/abis';
 import { formatUnits } from 'viem';
 import toast from 'react-hot-toast';
@@ -22,128 +22,187 @@ import {
   Layers,
   ArrowUpRight,
   TrendingUp,
-  Compass
+  Compass,
+  RefreshCw,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const publicClient = usePublicClient();
+  const contracts = getContractAddresses(chain?.id);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isFaucetOpen, setIsFaucetOpen] = useState(false);
   const [userPosts, setUserPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Read native BOT balance
-  const { data: nativeBalance } = useBalance({
+  const { data: nativeBalance, refetch: refetchNative } = useBalance({
     address: address,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 6000 },
   });
 
   // Read mUSDT Balance
   const { data: usdtBalance, refetch: refetchUsdt } = useReadContract({
-    address: CONTRACT_ADDRESSES.MockUSDT,
+    address: contracts.MockUSDT,
     abi: MOCK_USDT_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 6000 },
   });
 
   // Read XMS Balance
   const { data: xmsBalance, refetch: refetchXms } = useReadContract({
-    address: CONTRACT_ADDRESSES.RewardToken,
+    address: contracts.RewardToken,
     abi: REWARD_TOKEN_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 6000 },
   });
 
   // Read Tips Received from TipVault
-  const { data: totalTipsReceived } = useReadContract({
-    address: CONTRACT_ADDRESSES.TipVault,
+  const { data: totalTipsReceived, refetch: refetchTipsReceived } = useReadContract({
+    address: contracts.TipVault,
     abi: TIP_VAULT_ABI,
     functionName: 'totalTipsReceived',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 6000 },
   });
 
   // Read Tips Sent from TipVault
-  const { data: totalTipsSent } = useReadContract({
-    address: CONTRACT_ADDRESSES.TipVault,
+  const { data: totalTipsSent, refetch: refetchTipsSent } = useReadContract({
+    address: contracts.TipVault,
     abi: TIP_VAULT_ABI,
     functionName: 'totalTipsSent',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 6000 },
   });
 
   // Read User Post Count
-  const { data: userPostCount } = useReadContract({
-    address: CONTRACT_ADDRESSES.XMoodStreamCore,
+  const { data: userPostCount, refetch: refetchPostCount } = useReadContract({
+    address: contracts.XMoodStreamCore,
     abi: CORE_ABI,
     functionName: 'getUserPostCount',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 6000 },
   });
 
   // Fetch author posts from smart contract
-  useEffect(() => {
-    async function loadUserPosts() {
-      if (!publicClient || !address) {
-        setLoadingPosts(false);
-        return;
-      }
-
-      setLoadingPosts(true);
-      try {
-        const totalPosts = await publicClient.readContract({
-          address: CONTRACT_ADDRESSES.XMoodStreamCore,
-          abi: CORE_ABI,
-          functionName: 'getTotalPosts',
-        });
-
-        const count = Number(totalPosts);
-        const postsFound = [];
-
-        for (let i = count; i >= 1; i--) {
-          try {
-            const post = await publicClient.readContract({
-              address: CONTRACT_ADDRESSES.XMoodStreamCore,
-              abi: CORE_ABI,
-              functionName: 'getPost',
-              args: [BigInt(i)],
-            });
-
-            if (post.author.toLowerCase() === address.toLowerCase()) {
-              const tipData = await publicClient.readContract({
-                address: CONTRACT_ADDRESSES.TipVault,
-                abi: TIP_VAULT_ABI,
-                functionName: 'getPostTips',
-                args: [BigInt(i)],
-              });
-
-              postsFound.push({
-                id: Number(post.id),
-                author: post.author,
-                content: post.content,
-                timestamp: Number(post.timestamp),
-                tipsUsdt: parseFloat(formatUnits(tipData[0], 6)),
-              });
-            }
-          } catch (e) {
-            // ignore single post error
-          }
-        }
-
-        setUserPosts(postsFound);
-      } catch (err) {
-        console.error('Failed to load profile posts:', err);
-      } finally {
-        setLoadingPosts(false);
-      }
+  const loadUserPosts = useCallback(async (showToast = false) => {
+    if (!publicClient || !address) {
+      setLoadingPosts(false);
+      return;
     }
 
-    loadUserPosts();
-  }, [publicClient, address, userPostCount]);
+    setLoadingPosts(true);
+    if (showToast) setIsRefreshing(true);
+
+    try {
+      let postIdsToFetch = [];
+
+      // 1. Try getUserPosts first
+      try {
+        const userPostIdsRaw = await publicClient.readContract({
+          address: contracts.XMoodStreamCore,
+          abi: CORE_ABI,
+          functionName: 'getUserPosts',
+          args: [address],
+        });
+        if (Array.isArray(userPostIdsRaw) && userPostIdsRaw.length > 0) {
+          postIdsToFetch = userPostIdsRaw.map((id) => Number(id));
+        }
+      } catch (e) {
+        console.warn('getUserPosts read fallback:', e);
+      }
+
+      // 2. If getUserPosts is empty, scan all posts from totalPosts
+      if (postIdsToFetch.length === 0) {
+        try {
+          const totalPosts = await publicClient.readContract({
+            address: contracts.XMoodStreamCore,
+            abi: CORE_ABI,
+            functionName: 'getTotalPosts',
+          });
+          const count = Number(totalPosts);
+          for (let i = count; i >= 1; i--) {
+            postIdsToFetch.push(i);
+          }
+        } catch (e) {
+          console.warn('getTotalPosts read error:', e);
+        }
+      }
+
+      // Reverse so newest posts appear first
+      postIdsToFetch = Array.from(new Set(postIdsToFetch)).sort((a, b) => b - a);
+
+      // 3. Fetch each post in parallel
+      const postResults = await Promise.all(
+        postIdsToFetch.map(async (postId) => {
+          try {
+            const [post, tipRaw] = await Promise.all([
+              publicClient.readContract({
+                address: contracts.XMoodStreamCore,
+                abi: CORE_ABI,
+                functionName: 'getPost',
+                args: [BigInt(postId)],
+              }),
+              publicClient.readContract({
+                address: contracts.TipVault,
+                abi: TIP_VAULT_ABI,
+                functionName: 'postTips',
+                args: [BigInt(postId)],
+              }).catch(() => 0n),
+            ]);
+
+            if (post.author.toLowerCase() === address.toLowerCase()) {
+              const parsed = parsePostContent(post.contentHash);
+              return {
+                id: Number(post.id),
+                author: post.author,
+                rawContent: post.contentHash,
+                content: parsed.text,
+                mediaUrl: parsed.mediaUrl,
+                timestamp: Number(post.timestamp),
+                tipsUsdt: parseFloat(formatUnits(tipRaw || 0n, 6)),
+              };
+            }
+            return null;
+          } catch (err) {
+            return null;
+          }
+        })
+      );
+
+      const validUserPosts = postResults.filter(Boolean);
+      setUserPosts(validUserPosts);
+
+      if (showToast) {
+        toast.success(`Profile synced: ${validUserPosts.length} posts found on-chain!`);
+      }
+    } catch (err) {
+      console.error('Failed to load profile posts:', err);
+      if (showToast) toast.error('Failed to sync on-chain data');
+    } finally {
+      setLoadingPosts(false);
+      setIsRefreshing(false);
+    }
+  }, [publicClient, address, contracts.XMoodStreamCore, contracts.TipVault]);
+
+  useEffect(() => {
+    loadUserPosts(false);
+  }, [loadUserPosts, userPostCount]);
+
+  const handleManualRefresh = async () => {
+    refetchNative?.();
+    refetchUsdt?.();
+    refetchXms?.();
+    refetchTipsReceived?.();
+    refetchTipsSent?.();
+    refetchPostCount?.();
+    await loadUserPosts(true);
+  };
 
   const copyAddress = () => {
     if (!address) return;
@@ -156,6 +215,7 @@ export default function ProfilePage() {
   const nativeFormatted = nativeBalance ? parseFloat(nativeBalance.formatted).toFixed(3) : '0.000';
   const tipsReceivedFormatted = totalTipsReceived !== undefined ? parseFloat(formatUnits(totalTipsReceived, 6)).toFixed(2) : '0.00';
   const tipsSentFormatted = totalTipsSent !== undefined ? parseFloat(formatUnits(totalTipsSent, 6)).toFixed(2) : '0.00';
+  const recordedPostCount = userPostCount ? Number(userPostCount) : userPosts.length;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#090C15] text-[#F3F4F6]">
@@ -192,16 +252,16 @@ export default function ProfilePage() {
                 </div>
                 
                 <div className="flex items-center space-x-3 mt-1 text-xs font-mono text-[#94A3B8]">
-                  <span>Network: <strong className="text-[#00F5A0]">{CONTRACT_ADDRESSES.chainName}</strong></span>
+                  <span>Network: <strong className="text-[#00F5A0]">{contracts.chainName}</strong></span>
                   <span>•</span>
                   {address && (
                     <a
-                      href={`${CONTRACT_ADDRESSES.explorer}/address/${address}`}
+                      href={`${contracts.explorer}/address/${address}`}
                       target="_blank"
                       rel="noreferrer"
                       className="text-[#00F5A0] hover:underline flex items-center space-x-1"
                     >
-                      <span>View on BotScan</span>
+                      <span>View on Explorer</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
@@ -209,8 +269,18 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Faucet Trigger */}
+            {/* Actions: Refresh & Faucet */}
             <div className="flex items-center space-x-3">
+              <button
+                onClick={handleManualRefresh}
+                disabled={isRefreshing}
+                className="px-3.5 py-2.5 rounded-xl bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/50 text-[#94A3B8] hover:text-[#00F5A0] font-mono text-xs flex items-center space-x-1.5 transition-all"
+                title="Sync on-chain stats"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#00F5A0]' : ''}`} />
+                <span>Sync</span>
+              </button>
+
               <button
                 onClick={() => setIsFaucetOpen(true)}
                 className="px-4 py-2.5 rounded-xl bg-[#090C15] border border-[#F59E0B]/50 hover:bg-[#F59E0B]/10 text-[#F59E0B] font-mono text-xs font-semibold flex items-center space-x-2 transition-all"
@@ -236,7 +306,7 @@ export default function ProfilePage() {
               {nativeFormatted} <span className="text-xs text-[#94A3B8]">BOT</span>
             </div>
             <div className="text-[11px] font-mono text-[#00F5A0]">
-              {CONTRACT_ADDRESSES.chainName}
+              {contracts.chainName}
             </div>
           </div>
 
@@ -325,9 +395,9 @@ export default function ProfilePage() {
               {userPosts.map((post) => (
                 <div
                   key={post.id}
-                  className="bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/40 rounded-xl p-4 transition-all"
+                  className="bg-[#090C15] border border-[#1E293B] hover:border-[#00F5A0]/40 rounded-xl p-4 transition-all space-y-2"
                 >
-                  <div className="flex justify-between items-start mb-2">
+                  <div className="flex justify-between items-start">
                     <span className="text-xs font-mono text-[#94A3B8]">
                       TX #{post.id} • {post.timestamp > 0 ? new Date(post.timestamp * 1000).toLocaleString() : 'Recent'}
                     </span>
@@ -335,9 +405,21 @@ export default function ProfilePage() {
                       +{post.tipsUsdt.toFixed(2)} USDT Tipped
                     </span>
                   </div>
+
                   <p className="font-sans text-sm text-[#F3F4F6] leading-relaxed my-2">
                     {post.content}
                   </p>
+
+                  {post.mediaUrl && (
+                    <div className="rounded-lg overflow-hidden border border-[#1E293B] max-h-60 max-w-sm mt-2">
+                      <img
+                        src={post.mediaUrl}
+                        alt="Broadcast Attachment"
+                        className="w-full h-auto object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -351,10 +433,18 @@ export default function ProfilePage() {
       <CreatePostModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        onPostCreated={() => {
+          setTimeout(() => {
+            loadUserPosts(false);
+          }, 3500);
+        }}
       />
       <FaucetModal
         isOpen={isFaucetOpen}
         onClose={() => setIsFaucetOpen(false)}
+        onMintSuccess={() => {
+          refetchUsdt?.();
+        }}
       />
     </div>
   );

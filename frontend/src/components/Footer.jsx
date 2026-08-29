@@ -1,9 +1,15 @@
+'use client';
+
 import React from 'react';
 import Link from 'next/link';
-import { CONTRACT_ADDRESSES } from '../contracts/addresses';
+import { useAccount } from 'wagmi';
+import { CONTRACT_ADDRESSES, getContractAddresses } from '../contracts/addresses';
 import { ExternalLink, ShieldCheck, Zap } from 'lucide-react';
 
 export default function Footer() {
+  const { chain } = useAccount();
+  const contracts = getContractAddresses(chain?.id);
+
   return (
     <footer className="w-full border-t border-[#1E293B] bg-[#070910] text-[#94A3B8] py-8 text-xs font-mono">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,7 +30,7 @@ export default function Footer() {
               Network Specs
             </h4>
             <ul className="space-y-1">
-              <li>Chain: <span className="text-[#F3F4F6] font-semibold">{CONTRACT_ADDRESSES.chainName} ({CONTRACT_ADDRESSES.chainId})</span></li>
+              <li>Chain: <span className="text-[#F3F4F6] font-semibold">{contracts.chainName} ({contracts.chainId})</span></li>
               <li>Currency: <span className="text-[#F3F4F6]">BOT</span></li>
               <li>Tip Token: <span className="text-[#F59E0B]">mUSDT (6 Decimals)</span></li>
               <li>Reward: <span className="text-[#00F5A0]">$XMS (18 Decimals)</span></li>
@@ -38,7 +44,7 @@ export default function Footer() {
             <ul className="space-y-1">
               <li>
                 <a
-                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.XMoodStreamCore}`}
+                  href={`${contracts.explorer}/address/${contracts.XMoodStreamCore}`}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#00F5A0] flex items-center space-x-1"
@@ -49,7 +55,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.TipVault}`}
+                  href={`${contracts.explorer}/address/${contracts.TipVault}`}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#00F5A0] flex items-center space-x-1"
@@ -60,7 +66,7 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href={`${CONTRACT_ADDRESSES.explorer}/address/${CONTRACT_ADDRESSES.RewardDistributor}`}
+                  href={`${contracts.explorer}/address/${contracts.RewardDistributor}`}
                   target="_blank"
                   rel="noreferrer"
                   className="hover:text-[#00F5A0] flex items-center space-x-1"
@@ -151,7 +157,7 @@ export default function Footer() {
         <div className="pt-4 border-t border-[#1E293B] flex flex-col sm:flex-row items-center justify-between text-[11px] text-[#64748B]">
           <div>© 2026 X-Mood Stream. Built for BOT Chain & EVM Ecosystems.</div>
           <div className="flex items-center space-x-4 mt-2 sm:mt-0">
-            <span>Status: <strong className="text-[#00F5A0]">Live on {CONTRACT_ADDRESSES.chainName}</strong></span>
+            <span>Status: <strong className="text-[#00F5A0]">Live on {contracts.chainName}</strong></span>
           </div>
         </div>
       </div>

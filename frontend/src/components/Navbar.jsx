@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useReadContract, useSwitchChain } from 'wagmi';
-import { CONTRACT_ADDRESSES } from '../contracts/addresses';
+import { CONTRACT_ADDRESSES, getContractAddresses } from '../contracts/addresses';
 import { MOCK_USDT_ABI, REWARD_TOKEN_ABI } from '../contracts/abis';
 import { formatUnits } from 'viem';
 import {
@@ -38,6 +38,7 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
   const pathname = usePathname();
   const { address, isConnected, chain } = useAccount();
   const { switchChain } = useSwitchChain();
+  const contracts = getContractAddresses(chain?.id);
   const [isEcosystemOpen, setIsEcosystemOpen] = useState(false);
   const [isNetworkMenuOpen, setIsNetworkMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -64,20 +65,20 @@ export default function Navbar({ onOpenCreate, onOpenFaucet }) {
 
   // Read mUSDT balance
   const { data: usdtBalance } = useReadContract({
-    address: CONTRACT_ADDRESSES.MockUSDT,
+    address: contracts.MockUSDT,
     abi: MOCK_USDT_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   // Read XMS balance
   const { data: xmsBalance } = useReadContract({
-    address: CONTRACT_ADDRESSES.RewardToken,
+    address: contracts.RewardToken,
     abi: REWARD_TOKEN_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address, refetchInterval: 5000 },
   });
 
   const navItems = [
